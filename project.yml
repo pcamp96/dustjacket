@@ -1,6 +1,6 @@
 name: Dustjacket
 options:
-  bundleIdPrefix: com.dustjacket
+  bundleIdPrefix: com.campanale
   deploymentTarget:
     iOS: "26.0"
   xcodeVersion: "26"
@@ -18,7 +18,7 @@ targets:
       - Dustjacket
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.dustjacket.app
+        PRODUCT_BUNDLE_IDENTIFIER: com.campanale.dustjacket
         INFOPLIST_KEY_UILaunchScreen_Generation: true
         INFOPLIST_KEY_NSCameraUsageDescription: "Dustjacket uses your camera to scan book barcodes"
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: true

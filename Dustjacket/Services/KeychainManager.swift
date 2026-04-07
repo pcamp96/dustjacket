@@ -2,7 +2,7 @@ import Foundation
 import Security
 
 enum KeychainManager {
-    private static let service = "com.dustjacket.api"
+    private static let service = "com.campanale.dustjacket"
     private static let tokenKey = "hardcover_bearer_token"
 
     static func save(token: String) throws {
