@@ -224,7 +224,11 @@ struct BookDetailView: View {
                     createdAt: nil
                 )
                 journalEntries.insert(entry, at: 0)
-                // TODO: Wire to insert_reading_journal mutation
+                Task {
+                    try? await LibraryManager.shared.hardcoverService?.insertReadingJournal(
+                        bookId: book.id, event: event, entry: text.isEmpty ? nil : text, privacySettingId: 1
+                    )
+                }
             }
         }
         .sheet(isPresented: $showReviewEditor) {
@@ -233,7 +237,13 @@ struct BookDetailView: View {
                 reviewText: reviewText,
                 onSave: { text, hasSpoilers in
                     reviewText = text
-                    // TODO: Wire to update_user_book review_slate mutation
+                    if let userBookId = book.userBookId {
+                        Task {
+                            try? await LibraryManager.shared.hardcoverService?.updateUserBookReview(
+                                id: userBookId, reviewText: text, hasSpoilers: hasSpoilers
+                            )
+                        }
+                    }
                 }
             )
         }
@@ -280,8 +290,14 @@ struct BookDetailView: View {
     }
 
     private func updateProgress(pages: Int) {
-        // TODO: Wire to insert_user_book_read mutation when Phase 2 API is implemented
         book = book.with(currentProgress: pages)
+        if let userBookId = book.userBookId {
+            Task {
+                try? await LibraryManager.shared.hardcoverService?.insertUserBookRead(
+                    userBookId: userBookId, progressPages: pages
+                )
+            }
+        }
     }
 
     // MARK: - Helpers

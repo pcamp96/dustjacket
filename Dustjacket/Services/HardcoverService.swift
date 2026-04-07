@@ -19,6 +19,9 @@ protocol HardcoverServiceProtocol: Sendable {
     func getUserGoals() async throws -> [HardcoverGoal]
     func insertGoal(metric: String, goal: Int, startDate: String, endDate: String, description: String) async throws -> Int
     func deleteGoal(id: Int) async throws
+    func insertUserBookRead(userBookId: Int, progressPages: Int) async throws -> Int
+    func updateUserBookReview(id: Int, reviewText: String, hasSpoilers: Bool) async throws
+    func insertReadingJournal(bookId: Int, event: String, entry: String?, privacySettingId: Int) async throws -> Int
 }
 
 // MARK: - Implementation
@@ -504,5 +507,88 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
             responseKeyPath: "delete_goal",
             responseType: HardcoverIDResponse.self
         )
+    }
+
+    // MARK: - Reading Progress
+
+    func insertUserBookRead(userBookId: Int, progressPages: Int) async throws -> Int {
+        let query = """
+        mutation InsertRead($userBookId: Int!, $pages: Int!) {
+            insert_user_book_read(user_book_id: $userBookId, user_book_read: { progress_pages: $pages }) {
+                id
+            }
+        }
+        """
+        let response: HardcoverIDResponse = try await client.execute(
+            query: query,
+            variables: ["userBookId": userBookId, "pages": progressPages],
+            responseKeyPath: "insert_user_book_read",
+            responseType: HardcoverIDResponse.self
+        )
+        return response.id
+    }
+
+    // MARK: - Reviews
+
+    func updateUserBookReview(id: Int, reviewText: String, hasSpoilers: Bool) async throws {
+        // Convert plain text to Slate.js JSON format
+        let escapedText = reviewText
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\n", with: "\\n")
+
+        let slateJson = "[{\"type\":\"paragraph\",\"children\":[{\"text\":\"\(escapedText)\"}]}]"
+
+        let query = """
+        mutation UpdateReview($id: Int!) {
+            update_user_book(id: $id, object: {
+                review_slate: "\(slateJson)",
+                review_has_spoilers: \(hasSpoilers)
+            }) {
+                id
+                user_book { id }
+            }
+        }
+        """
+        let _: HardcoverUserBookMutationResponse = try await client.execute(
+            query: query,
+            variables: ["id": id],
+            responseKeyPath: "update_user_book",
+            responseType: HardcoverUserBookMutationResponse.self
+        )
+    }
+
+    // MARK: - Reading Journal
+
+    func insertReadingJournal(bookId: Int, event: String, entry: String?, privacySettingId: Int = 1) async throws -> Int {
+        var entryField = ""
+        if let entry, !entry.isEmpty {
+            let escaped = entry.replacingOccurrences(of: "\"", with: "\\\"")
+            entryField = ", entry: \"\(escaped)\""
+        }
+
+        let query = """
+        {
+            insert_reading_journal(object: {
+                book_id: \(bookId),
+                event: "\(event)",
+                privacy_setting_id: \(privacySettingId)
+                \(entryField)
+            }) {
+                id
+                errors
+            }
+        }
+        """
+        let response: HardcoverMutationResponse = try await client.execute(
+            query: query,
+            variables: nil,
+            responseKeyPath: "insert_reading_journal",
+            responseType: HardcoverMutationResponse.self
+        )
+        if let errors = response.errors, !errors.isEmpty {
+            throw GraphQLClientError.graphQLErrors(errors)
+        }
+        return response.id ?? 0
     }
 }

@@ -19,7 +19,7 @@ final class LibraryManager: ObservableObject {
     /// Maps Hardcover list ID → DJ list key (reverse lookup)
     private var reverseListMappings: [Int: String] = [:]
 
-    private var hardcoverService: HardcoverServiceProtocol?
+    private(set) var hardcoverService: HardcoverServiceProtocol?
     private var modelContext: ModelContext?
     private var currentOffset = 0
     private let pageSize = 50
