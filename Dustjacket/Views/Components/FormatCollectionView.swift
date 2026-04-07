@@ -3,6 +3,7 @@ import SwiftUI
 /// Shows which formats a book is owned in / wanted in, with toggle buttons
 struct FormatCollectionView: View {
     let bookId: Int
+    let book: Book?
     @ObservedObject var libraryManager: LibraryManager
 
     var body: some View {
@@ -21,7 +22,7 @@ struct FormatCollectionView: View {
                             let isOn = libraryManager.isBookOnList(bookId, ownership: ownership, format: format)
 
                             Button {
-                                libraryManager.toggleBookOnDJList(bookId: bookId, ownership: ownership, format: format)
+                                libraryManager.toggleBookOnDJList(bookId: bookId, ownership: ownership, format: format, book: book)
                             } label: {
                                 HStack(spacing: 4) {
                                     Image(systemName: format.icon)

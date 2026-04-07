@@ -66,7 +66,6 @@ final class ScannerManager: ObservableObject {
                     userBookId: nil
                 )
                 foundBook = book
-                LibraryManager.shared.addBookOptimistically(book)
                 scanState = .found
             } else {
                 let cleaned = isbn.filter { $0.isNumber || $0 == "X" || $0 == "x" }

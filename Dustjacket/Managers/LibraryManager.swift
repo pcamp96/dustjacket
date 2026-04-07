@@ -202,7 +202,8 @@ final class LibraryManager: ObservableObject {
 
     /// Toggle a book on/off a DJ list (e.g., mark as Owned · Hardback)
     /// When adding to Owned, automatically removes from Want for same format (and vice versa)
-    func toggleBookOnDJList(bookId: Int, ownership: OwnershipType, format: BookFormat) {
+    /// Pass the full Book if it might not be in the library yet (e.g., from scanner)
+    func toggleBookOnDJList(bookId: Int, ownership: OwnershipType, format: BookFormat, book: Book? = nil) {
         let djKey = ownership.listKey(for: format)
         guard let listId = listMappings[djKey] else { return }
 
@@ -212,10 +213,20 @@ final class LibraryManager: ObservableObject {
             // Remove from list
             bookListMembership[bookId]?.remove(djKey)
             SyncManager.shared.enqueueRemoveFromList(bookId: bookId, listId: listId)
+
+            // If book has no more list memberships, remove from library
+            if bookListMembership[bookId]?.isEmpty ?? true {
+                books.removeAll { $0.id == bookId }
+            }
         } else {
             // Add to list
             bookListMembership[bookId, default: []].insert(djKey)
             SyncManager.shared.enqueueAddToList(bookId: bookId, listId: listId)
+
+            // If book isn't in library yet, add it
+            if let book, !books.contains(where: { $0.id == bookId }) {
+                books.insert(book, at: 0)
+            }
 
             // Auto-remove from the opposite ownership for the same format
             let oppositeOwnership: OwnershipType = ownership == .owned ? .want : .owned
