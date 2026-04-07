@@ -4,6 +4,8 @@ struct BookDetailView: View {
     @State private var book: Book
     @ObservedObject private var libraryManager = LibraryManager.shared
     @State private var showProgressSheet = false
+    @State private var showReviewEditor = false
+    @State private var reviewText: String = ""
 
     init(book: Book) {
         _book = State(initialValue: book)
@@ -121,6 +123,32 @@ struct BookDetailView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .padding(.horizontal)
 
+                // Review section (only when book is in library)
+                if book.userBookId != nil {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Review")
+                                .font(.subheadline.bold())
+                            Spacer()
+                            Button(reviewText.isEmpty ? "Write Review" : "Edit") {
+                                showReviewEditor = true
+                            }
+                            .font(.caption)
+                        }
+
+                        if !reviewText.isEmpty {
+                            Text(reviewText)
+                                .font(.body)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(5)
+                        }
+                    }
+                    .padding()
+                    .background(.quaternary.opacity(0.5))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .padding(.horizontal)
+                }
+
                 // Hardcover link
                 if let url = book.hardcoverURL {
                     Link(destination: url) {
@@ -134,6 +162,16 @@ struct BookDetailView: View {
         }
         .navigationTitle(book.title)
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showReviewEditor) {
+            ReviewEditorView(
+                bookTitle: book.title,
+                reviewText: reviewText,
+                onSave: { text, hasSpoilers in
+                    reviewText = text
+                    // TODO: Wire to update_user_book review_slate mutation
+                }
+            )
+        }
         .sheet(isPresented: $showProgressSheet) {
             ProgressUpdateSheet(
                 bookTitle: book.title,

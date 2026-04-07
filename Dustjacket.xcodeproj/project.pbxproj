@@ -23,6 +23,7 @@
 		39AFDE326D50F94A87ABF2A9 /* ListCreationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 967BA0943265A84CA35A9131 /* ListCreationView.swift */; };
 		39B18400757E84507A2A43BE /* Book.swift in Sources */ = {isa = PBXBuildFile; fileRef = 532052FF7307534961EBE1EF /* Book.swift */; };
 		3AB3FEBAFDABC1815CE4E286 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AF28625130212B62C83D2AA /* ContentView.swift */; };
+		3D750BA51676921923767FF5 /* ReviewEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 826BCBE19AEDF8ADDF827FB8 /* ReviewEditorView.swift */; };
 		4B5ED9F0B771737F5AC33665 /* ListSetupWizard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03026B314D7AC82F598D824F /* ListSetupWizard.swift */; };
 		4D764AFBF79A6A4F1C4295C4 /* MutationQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FBFA22A6E0B9DAB9FD4AAD9 /* MutationQueue.swift */; };
 		4DBF337515953C4173C48D44 /* Edition.swift in Sources */ = {isa = PBXBuildFile; fileRef = D36CB9262E43057CE2E0FFBD /* Edition.swift */; };
@@ -94,6 +95,7 @@
 		7B217E99316F3902CF5DEE00 /* UserProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfile.swift; sourceTree = "<group>"; };
 		7DD0A60A180547D1E5FCA489 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		7FBFA22A6E0B9DAB9FD4AAD9 /* MutationQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MutationQueue.swift; sourceTree = "<group>"; };
+		826BCBE19AEDF8ADDF827FB8 /* ReviewEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewEditorView.swift; sourceTree = "<group>"; };
 		8579C0C5D08592295F2316D9 /* HardcoverService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HardcoverService.swift; sourceTree = "<group>"; };
 		8FD1BF57566C00ADD076D0CB /* FormatFilterBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormatFilterBar.swift; sourceTree = "<group>"; };
 		95A7DB67611A66A6345478CB /* ProgressUpdateSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressUpdateSheet.swift; sourceTree = "<group>"; };
@@ -150,6 +152,7 @@
 			children = (
 				CC22CD83CA57558F664E6F5E /* FormatCollectionView.swift */,
 				95A7DB67611A66A6345478CB /* ProgressUpdateSheet.swift */,
+				826BCBE19AEDF8ADDF827FB8 /* ReviewEditorView.swift */,
 				A9EA888D07C91399C4A9C230 /* StarRatingView.swift */,
 				CAD8F6744E6DF7DED5693B0B /* StatusPickerView.swift */,
 			);
@@ -375,6 +378,7 @@
 				82E60D430BC9D4D2E054035B /* PendingMutation.swift in Sources */,
 				0360C34CCAF65631BB3283AD /* ProfileManager.swift in Sources */,
 				00923E63266A12AB1F3549C4 /* ProgressUpdateSheet.swift in Sources */,
+				3D750BA51676921923767FF5 /* ReviewEditorView.swift in Sources */,
 				BE6DBABDE266C8003533AF41 /* ScanResultView.swift in Sources */,
 				2A38E0EAFD7CCDFF7B160DAE /* ScannerManager.swift in Sources */,
 				9FD33AC9D5EAA1011F7C68C4 /* ScannerView.swift in Sources */,
