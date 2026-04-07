@@ -7,6 +7,7 @@ struct SearchView: View {
     @State private var results: [HardcoverSearchResult] = []
     @State private var isSearching = false
     @State private var hasSearched = false
+    @State private var searchError: String?
     @State private var searchTask: Task<Void, Never>?
 
     var body: some View {
@@ -19,8 +20,16 @@ struct SearchView: View {
                 )
                 .listRowSeparator(.hidden)
             } else if hasSearched && results.isEmpty && !isSearching {
-                ContentUnavailableView.search(text: query)
-                    .listRowSeparator(.hidden)
+                VStack(spacing: 8) {
+                    ContentUnavailableView.search(text: query)
+                    if let searchError {
+                        Text(searchError)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                            .padding(.horizontal)
+                    }
+                }
+                .listRowSeparator(.hidden)
             } else {
                 ForEach(results, id: \.id) { result in
                     searchResultRow(result)
@@ -110,12 +119,14 @@ struct SearchView: View {
 
         Task {
             isSearching = true
+            searchError = nil
             do {
                 results = try await hardcoverService.searchBooks(query: trimmed, page: 1, perPage: 20)
                 hasSearched = true
             } catch {
                 hasSearched = true
                 results = []
+                searchError = error.localizedDescription
             }
             isSearching = false
         }

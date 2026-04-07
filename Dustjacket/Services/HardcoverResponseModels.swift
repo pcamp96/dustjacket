@@ -155,12 +155,24 @@ struct HardcoverSearchResponse: Sendable {
 extension HardcoverSearchResponse: Decodable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        // results is jsonb — might be an array of objects or might fail to decode as typed array
+
+        // Try 1: results is already a decoded array (inline JSON)
         if let typedResults = try? container.decode([HardcoverSearchResult].self, forKey: .results) {
             results = typedResults
-        } else {
-            results = []
+            return
         }
+
+        // Try 2: results is a jsonb string that needs double-decoding
+        if let jsonString = try? container.decode(String.self, forKey: .results),
+           let jsonData = jsonString.data(using: .utf8),
+           let typedResults = try? JSONDecoder().decode([HardcoverSearchResult].self, from: jsonData) {
+            results = typedResults
+            return
+        }
+
+        // Try 3: results might be some other shape — decode as raw JSON and extract
+        // Hasura jsonb can also come as already-parsed dictionaries
+        results = []
     }
 
     private enum CodingKeys: String, CodingKey {

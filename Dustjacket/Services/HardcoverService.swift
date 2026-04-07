@@ -59,27 +59,22 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
     // MARK: - Search
 
     func searchBooks(query searchQuery: String, page: Int = 1, perPage: Int = 10) async throws -> [HardcoverSearchResult] {
+        // Inline the search params to avoid variable type mismatch issues
+        let escapedQuery = searchQuery.replacingOccurrences(of: "\"", with: "\\\"")
         let query = """
-        query SearchBooks($query: String!, $page: Int!, $perPage: Int!) {
-            search(query: $query, query_type: "books", per_page: $perPage, page: $page) {
+        {
+            search(query: "\(escapedQuery)", query_type: "books", per_page: \(perPage), page: \(page)) {
                 results
             }
         }
         """
         let response: HardcoverSearchResponse = try await client.execute(
             query: query,
-            variables: ["query": searchQuery, "page": page, "perPage": perPage],
+            variables: nil,
             responseKeyPath: "search",
             responseType: HardcoverSearchResponse.self
         )
-
-        // If typed decode worked, return directly
-        if !response.results.isEmpty {
-            return response.results
-        }
-
-        // Fallback: results might be in a different jsonb shape — return empty
-        return []
+        return response.results
     }
 
     // MARK: - Editions
