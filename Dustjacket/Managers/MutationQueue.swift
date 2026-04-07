@@ -58,6 +58,7 @@ final class MutationQueue: ObservableObject {
                 try? context.save()
                 try await Task.sleep(for: minimumDelay)
             } catch {
+                print("[MutationQueue] Error executing \(mutation.mutationType): \(error.localizedDescription)")
                 mutation.retryCount += 1
                 mutation.lastError = error.localizedDescription
                 mutation.status = mutation.retryCount >= 5 ? "failed" : "pending"

@@ -215,3 +215,9 @@ struct HardcoverIDResponse: Codable, Sendable {
 struct HardcoverAffectedRows: Codable, Sendable {
     let affected_rows: Int
 }
+
+/// Generic response for mutations that return {id, errors}
+struct HardcoverMutationResponse: Codable, Sendable {
+    let id: Int?
+    let errors: [String]?
+}
