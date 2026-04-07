@@ -5,7 +5,9 @@ struct BookDetailView: View {
     @ObservedObject private var libraryManager = LibraryManager.shared
     @State private var showProgressSheet = false
     @State private var showReviewEditor = false
+    @State private var showJournalEditor = false
     @State private var reviewText: String = ""
+    @State private var journalEntries: [ReadingJournal] = []
 
     init(book: Book) {
         _book = State(initialValue: book)
@@ -149,6 +151,55 @@ struct BookDetailView: View {
                     .padding(.horizontal)
                 }
 
+                // Reading Journal (only when book is in library)
+                if book.userBookId != nil {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Journal")
+                                .font(.subheadline.bold())
+                            Spacer()
+                            Button("Add Entry") {
+                                showJournalEditor = true
+                            }
+                            .font(.caption)
+                        }
+
+                        if journalEntries.isEmpty {
+                            Text("No journal entries yet")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        } else {
+                            ForEach(journalEntries) { entry in
+                                HStack(spacing: 8) {
+                                    Image(systemName: entry.eventIcon)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text(entry.eventLabel)
+                                            .font(.caption.bold())
+                                        if let text = entry.entry, !text.isEmpty {
+                                            Text(text)
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                                .lineLimit(2)
+                                        }
+                                    }
+                                    Spacer()
+                                    if let date = entry.actionAt {
+                                        Text(date.prefix(10))
+                                            .font(.caption2)
+                                            .foregroundStyle(.tertiary)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .padding()
+                    .background(.quaternary.opacity(0.5))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .padding(.horizontal)
+                }
+
                 // Hardcover link
                 if let url = book.hardcoverURL {
                     Link(destination: url) {
@@ -162,6 +213,20 @@ struct BookDetailView: View {
         }
         .navigationTitle(book.title)
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showJournalEditor) {
+            JournalEditorSheet(bookTitle: book.title) { event, text in
+                let entry = ReadingJournal(
+                    id: Int.random(in: 100000...999999),
+                    bookId: book.id,
+                    event: event,
+                    entry: text.isEmpty ? nil : text,
+                    actionAt: ISO8601DateFormatter().string(from: Date()),
+                    createdAt: nil
+                )
+                journalEntries.insert(entry, at: 0)
+                // TODO: Wire to insert_reading_journal mutation
+            }
+        }
         .sheet(isPresented: $showReviewEditor) {
             ReviewEditorView(
                 bookTitle: book.title,
