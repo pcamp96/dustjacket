@@ -186,7 +186,9 @@ struct ScanResultView: View {
                 statusId: nil,
                 rating: nil,
                 userBookId: nil,
-                currentProgress: nil
+                currentProgress: nil,
+                progressPercent: nil,
+                progressSeconds: nil
             )
             LibraryManager.shared.addBookOptimistically(book)
 

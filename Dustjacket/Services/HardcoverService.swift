@@ -149,6 +149,14 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
                     status_id
                     rating
                     created_at
+                    user_book_reads(order_by: { created_at: desc }, limit: 1) {
+                        id
+                        progress
+                        progress_pages
+                        progress_seconds
+                        started_at
+                        finished_at
+                    }
                     book {
                         id
                         title

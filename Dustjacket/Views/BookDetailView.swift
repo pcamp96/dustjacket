@@ -65,13 +65,15 @@ struct BookDetailView: View {
                 }
 
                 // Reading Progress (only when currently reading)
-                if book.statusId == 2, let pages = book.pageCount, pages > 0 {
+                if book.statusId == 2 {
                     VStack(spacing: 8) {
-                        ProgressView(value: Double(book.currentProgress ?? 0), total: Double(pages))
-                            .tint(.orange)
+                        if let fraction = book.progressFraction {
+                            ProgressView(value: fraction)
+                                .tint(.orange)
+                        }
 
                         HStack {
-                            Text("\(book.currentProgress ?? 0) of \(pages) pages")
+                            Text(book.progressLabel ?? "No progress recorded")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                             Spacer()

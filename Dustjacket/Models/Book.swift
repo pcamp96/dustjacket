@@ -14,7 +14,9 @@ struct Book: Identifiable, Codable, Hashable, Sendable {
     let statusId: Int?
     let rating: Double?
     let userBookId: Int?
-    let currentProgress: Int?
+    let currentProgress: Int?      // pages read
+    let progressPercent: Double?   // 0-100 percentage
+    let progressSeconds: Int?      // audio seconds listened
 
     var displayAuthor: String {
         authorNames.joined(separator: ", ")
@@ -31,6 +33,36 @@ struct Book: Identifiable, Codable, Hashable, Sendable {
         }
     }
 
+    /// Best available progress as a 0-1 fraction
+    var progressFraction: Double? {
+        if let pct = progressPercent, pct > 0 {
+            return pct / 100.0
+        }
+        if let pages = currentProgress, let total = pageCount, total > 0 {
+            return Double(pages) / Double(total)
+        }
+        return nil
+    }
+
+    /// Human-readable progress string
+    var progressLabel: String? {
+        if let secs = progressSeconds, secs > 0 {
+            let hours = secs / 3600
+            let mins = (secs % 3600) / 60
+            return "\(hours)h \(mins)m listened"
+        }
+        if let pct = progressPercent, pct > 0 {
+            return "\(Int(pct))% done"
+        }
+        if let pages = currentProgress, pages > 0 {
+            if let total = pageCount {
+                return "\(pages) of \(total) pages"
+            }
+            return "Page \(pages)"
+        }
+        return nil
+    }
+
     var hardcoverURL: URL? {
         guard let slug else { return nil }
         return URL(string: "https://hardcover.app/books/\(slug)")
@@ -41,7 +73,9 @@ struct Book: Identifiable, Codable, Hashable, Sendable {
         statusId: Int?? = nil,
         rating: Double?? = nil,
         userBookId: Int?? = nil,
-        currentProgress: Int?? = nil
+        currentProgress: Int?? = nil,
+        progressPercent: Double?? = nil,
+        progressSeconds: Int?? = nil
     ) -> Book {
         Book(
             id: id, title: title, authorNames: authorNames,
@@ -51,7 +85,9 @@ struct Book: Identifiable, Codable, Hashable, Sendable {
             statusId: statusId ?? self.statusId,
             rating: rating ?? self.rating,
             userBookId: userBookId ?? self.userBookId,
-            currentProgress: currentProgress ?? self.currentProgress
+            currentProgress: currentProgress ?? self.currentProgress,
+            progressPercent: progressPercent ?? self.progressPercent,
+            progressSeconds: progressSeconds ?? self.progressSeconds
         )
     }
 }
@@ -74,7 +110,10 @@ extension Book {
         self.statusId = userBook.status_id
         self.rating = userBook.rating
         self.userBookId = userBook.id
-        self.currentProgress = nil
+        let latestRead = userBook.user_book_reads?.first
+        self.currentProgress = latestRead?.progress_pages
+        self.progressPercent = latestRead?.progress
+        self.progressSeconds = latestRead?.progress_seconds
     }
 
     init(from hcBook: HardcoverBook, statusId: Int? = nil, rating: Double? = nil, userBookId: Int? = nil) {
@@ -92,6 +131,8 @@ extension Book {
         self.rating = rating
         self.userBookId = userBookId
         self.currentProgress = nil
+        self.progressPercent = nil
+        self.progressSeconds = nil
     }
 
     private static func extractAuthors(from book: HardcoverBook) -> [String] {
@@ -124,5 +165,7 @@ extension Book {
         self.rating = cached.rating
         self.userBookId = cached.userBookId
         self.currentProgress = nil
+        self.progressPercent = nil
+        self.progressSeconds = nil
     }
 }

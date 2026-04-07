@@ -114,7 +114,17 @@ struct HardcoverUserBook: Codable, Sendable {
     let status_id: Int?
     let rating: Double?
     let created_at: String?
+    let user_book_reads: [HardcoverUserBookRead]?
     let book: HardcoverBook
+}
+
+struct HardcoverUserBookRead: Codable, Sendable {
+    let id: Int
+    let progress: Double?
+    let progress_pages: Int?
+    let progress_seconds: Int?
+    let started_at: String?
+    let finished_at: String?
 }
 
 struct HardcoverMeUserBooks: Codable, Sendable {
