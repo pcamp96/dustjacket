@@ -41,12 +41,16 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
             }
         }
         """
-        return try await client.execute(
+        let users: [HardcoverUser] = try await client.execute(
             query: query,
             variables: nil,
             responseKeyPath: "me",
-            responseType: HardcoverUser.self
+            responseType: [HardcoverUser].self
         )
+        guard let user = users.first else {
+            throw GraphQLClientError.noData
+        }
+        return user
     }
 
     // MARK: - Search
@@ -156,13 +160,13 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
         }
         """
 
-        let me: HardcoverMeUserBooks = try await client.execute(
+        let meArray: [HardcoverMeUserBooks] = try await client.execute(
             query: query,
             variables: nil,
             responseKeyPath: "me",
-            responseType: HardcoverMeUserBooks.self
+            responseType: [HardcoverMeUserBooks].self
         )
-        return me.user_books
+        return meArray.first?.user_books ?? []
     }
 
     // MARK: - Lists
@@ -184,13 +188,13 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
             }
         }
         """
-        let me: HardcoverMeLists = try await client.execute(
+        let meArray: [HardcoverMeLists] = try await client.execute(
             query: query,
             variables: nil,
             responseKeyPath: "me",
-            responseType: HardcoverMeLists.self
+            responseType: [HardcoverMeLists].self
         )
-        return me.lists
+        return meArray.first?.lists ?? []
     }
 
     func createList(name: String) async throws -> HardcoverList {
