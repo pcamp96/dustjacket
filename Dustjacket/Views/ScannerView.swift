@@ -49,12 +49,27 @@ struct ScannerView: View {
                 }
 
             case .found:
-                if let edition = manager.scannedEdition {
-                    ScanResultView(
-                        edition: edition,
-                        hardcoverService: hardcoverService,
-                        onDismiss: { manager.reset() }
-                    )
+                if let book = manager.foundBook {
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            // Back button
+                            HStack {
+                                Button {
+                                    manager.reset()
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "chevron.left")
+                                        Text("Scan")
+                                    }
+                                }
+                                Spacer()
+                            }
+                            .padding(.horizontal)
+                            .padding(.top, 8)
+
+                            BookDetailView(book: book)
+                        }
+                    }
                 }
 
             case .searchResults:
@@ -106,8 +121,7 @@ struct ScannerView: View {
 
             List(manager.searchResults, id: \.id) { result in
                 Button {
-                    // Look up the full book by ID to get edition details
-                    Task { await selectSearchResult(result) }
+                    manager.selectSearchResult(result)
                 } label: {
                     HStack(spacing: 12) {
                         if let url = result.imageURL, let imageURL = URL(string: url) {
@@ -145,31 +159,6 @@ struct ScannerView: View {
             }
             .listStyle(.plain)
         }
-    }
-
-    private func selectSearchResult(_ result: HardcoverSearchResult) async {
-        guard let bookId = result.id else { return }
-
-        // Create a minimal edition from the search result so ScanResultView can display it
-        manager.scannedEdition = Edition(
-            id: 0,
-            bookId: bookId,
-            title: result.title,
-            isbn13: nil,
-            isbn10: nil,
-            format: nil,
-            pageCount: nil,
-            releaseDate: nil,
-            coverURL: result.imageURL,
-            bookTitle: result.title,
-            bookCoverURL: result.imageURL,
-            bookSlug: nil,
-            authorNames: result.authorNames,
-            seriesID: nil,
-            seriesName: nil,
-            seriesPosition: nil
-        )
-        manager.scanState = .found
     }
 
     // MARK: - Fallback Views

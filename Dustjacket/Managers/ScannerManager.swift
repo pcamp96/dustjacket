@@ -5,6 +5,7 @@ import Vision
 final class ScannerManager: ObservableObject {
     @Published var scanState: ScanState = .scanning
     @Published var scannedEdition: Edition?
+    @Published var foundBook: Book?
     @Published var searchResults: [HardcoverSearchResult] = []
     @Published var errorMessage: String?
     @Published var isLookingUp = false
@@ -37,6 +38,8 @@ final class ScannerManager: ObservableObject {
 
     func handleTextDetected(_ text: String) async {
         guard !isLookingUp else { return }
+        // Don't process more text once we've shown results
+        guard scanState == .scanning else { return }
 
         // Tier 2: Check for ISBN in the text
         if let isbn = ISBNLookupService.extractISBN(from: text) {
@@ -54,7 +57,7 @@ final class ScannerManager: ObservableObject {
         textSearchTask?.cancel()
         textSearchTask = Task {
             try? await Task.sleep(for: .seconds(2))
-            guard !Task.isCancelled, !isLookingUp else { return }
+            guard !Task.isCancelled, !isLookingUp, scanState == .scanning else { return }
             await searchByAccumulatedText()
         }
     }
@@ -69,9 +72,23 @@ final class ScannerManager: ObservableObject {
         do {
             if let edition = try await isbnLookup.lookup(isbn: isbn) {
                 scannedEdition = edition
+                foundBook = Book(
+                    id: edition.bookId,
+                    title: edition.bookTitle ?? edition.title ?? "Unknown",
+                    authorNames: edition.authorNames,
+                    coverURL: edition.coverURL,
+                    slug: edition.bookSlug,
+                    pageCount: edition.pageCount,
+                    isbn13: edition.isbn13,
+                    seriesID: edition.seriesID,
+                    seriesName: edition.seriesName,
+                    seriesPosition: edition.seriesPosition,
+                    statusId: nil,
+                    rating: nil,
+                    userBookId: nil
+                )
                 scanState = .found
             } else {
-                // ISBN not found — don't show error, let text fallback continue
                 scanState = .scanning
                 isLookingUp = false
                 return
@@ -83,6 +100,26 @@ final class ScannerManager: ObservableObject {
         }
 
         isLookingUp = false
+    }
+
+    /// Convert a search result to a Book and show detail
+    func selectSearchResult(_ result: HardcoverSearchResult) {
+        foundBook = Book(
+            id: result.id ?? 0,
+            title: result.title ?? "Unknown",
+            authorNames: result.authorNames,
+            coverURL: result.imageURL,
+            slug: nil,
+            pageCount: nil,
+            isbn13: nil,
+            seriesID: nil,
+            seriesName: nil,
+            seriesPosition: nil,
+            statusId: nil,
+            rating: nil,
+            userBookId: nil
+        )
+        scanState = .found
     }
 
     // MARK: - Title/Author Search (Tier 3)
@@ -117,6 +154,7 @@ final class ScannerManager: ObservableObject {
     func reset() {
         scanState = .scanning
         scannedEdition = nil
+        foundBook = nil
         searchResults = []
         errorMessage = nil
         isLookingUp = false

@@ -32,7 +32,25 @@ struct SearchView: View {
                 .listRowSeparator(.hidden)
             } else {
                 ForEach(results, id: \.id) { result in
-                    searchResultRow(result)
+                    NavigationLink {
+                        BookDetailView(book: Book(
+                            id: result.id ?? 0,
+                            title: result.title ?? "Unknown",
+                            authorNames: result.authorNames,
+                            coverURL: result.imageURL,
+                            slug: nil,
+                            pageCount: nil,
+                            isbn13: nil,
+                            seriesID: nil,
+                            seriesName: nil,
+                            seriesPosition: nil,
+                            statusId: nil,
+                            rating: nil,
+                            userBookId: nil
+                        ))
+                    } label: {
+                        searchResultRow(result)
+                    }
                 }
             }
 
