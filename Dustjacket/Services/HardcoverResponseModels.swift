@@ -148,60 +148,46 @@ struct HardcoverInsertListResponse: Codable, Sendable {
 
 // MARK: - Search
 
-struct HardcoverSearchResponse: Sendable {
-    let results: [HardcoverSearchResult]
+// The search results come as a Typesense response: { hits: [{ document: {...} }], found: N, ... }
+struct HardcoverSearchResponse: Codable, Sendable {
+    let results: HardcoverTypesenseResults
 }
 
-extension HardcoverSearchResponse: Decodable {
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-
-        // Try 1: results is already a decoded array (inline JSON)
-        if let typedResults = try? container.decode([HardcoverSearchResult].self, forKey: .results) {
-            results = typedResults
-            return
-        }
-
-        // Try 2: results is a jsonb string that needs double-decoding
-        if let jsonString = try? container.decode(String.self, forKey: .results),
-           let jsonData = jsonString.data(using: .utf8),
-           let typedResults = try? JSONDecoder().decode([HardcoverSearchResult].self, from: jsonData) {
-            results = typedResults
-            return
-        }
-
-        // Try 3: results might be some other shape — decode as raw JSON and extract
-        // Hasura jsonb can also come as already-parsed dictionaries
-        results = []
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case results
-    }
+struct HardcoverTypesenseResults: Codable, Sendable {
+    let hits: [HardcoverTypesenseHit]?
+    let found: Int?
 }
 
-extension HardcoverSearchResponse: Encodable {
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(results, forKey: .results)
-    }
+struct HardcoverTypesenseHit: Codable, Sendable {
+    let document: HardcoverSearchDocument
 }
 
-struct HardcoverSearchResult: Codable, Sendable {
+struct HardcoverSearchDocument: Codable, Sendable {
+    let id: String?
+    let title: String?
+    let slug: String?
+    let image: HardcoverImage?
+    let author_names: [String]?
+    let pages: Int?
+    let release_year: Int?
+    let rating: Double?
+    let users_count: Int?
+}
+
+// Flattened result for the UI layer
+struct HardcoverSearchResult: Sendable {
     let id: Int?
     let title: String?
     let slug: String?
-    let image: String?
-    let author_names: [String]?
-    let cached_contributors: HardcoverCachedContributors?
+    let imageURL: String?
+    let authorNames: [String]
 
-    /// Extract author names from whichever field is available
-    var displayAuthors: [String] {
-        if let names = author_names, !names.isEmpty { return names }
-        if let cached = cached_contributors?.author {
-            return cached.compactMap(\.name)
-        }
-        return []
+    init(from doc: HardcoverSearchDocument) {
+        self.id = doc.id.flatMap { Int($0) }
+        self.title = doc.title
+        self.slug = doc.slug
+        self.imageURL = doc.image?.url
+        self.authorNames = doc.author_names ?? []
     }
 }
 

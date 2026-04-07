@@ -57,7 +57,7 @@ struct SearchView: View {
 
     private func searchResultRow(_ result: HardcoverSearchResult) -> some View {
         HStack(spacing: 12) {
-            if let imageURL = result.image, let url = URL(string: imageURL) {
+            if let imageURL = result.imageURL, let url = URL(string: imageURL) {
                 AsyncImage(url: url) { image in
                     image
                         .resizable()
@@ -84,8 +84,8 @@ struct SearchView: View {
                     .font(.subheadline.bold())
                     .lineLimit(2)
 
-                if !result.displayAuthors.isEmpty {
-                    Text(result.displayAuthors.joined(separator: ", "))
+                if !result.authorNames.isEmpty {
+                    Text(result.authorNames.joined(separator: ", "))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)

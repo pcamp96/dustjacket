@@ -163,14 +163,6 @@ final class GraphQLClient: GraphQLClientProtocol, @unchecked Sendable {
                 throw GraphQLClientError.noData
             }
 
-            // Debug: print raw response for search queries to diagnose jsonb issues
-            if responseKeyPath == "search" {
-                let debugJSON = try JSONSerialization.data(withJSONObject: targetData, options: .prettyPrinted)
-                if let debugStr = String(data: debugJSON, encoding: .utf8) {
-                    print("[Dustjacket Search Debug] Raw response:\n\(debugStr)")
-                }
-            }
-
             let targetJSON = try JSONSerialization.data(withJSONObject: targetData)
             let decoded = try JSONDecoder().decode(T.self, from: targetJSON)
             return decoded

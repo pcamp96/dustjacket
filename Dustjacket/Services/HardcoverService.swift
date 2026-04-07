@@ -74,7 +74,7 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
             responseKeyPath: "search",
             responseType: HardcoverSearchResponse.self
         )
-        return response.results
+        return response.results.hits?.map { HardcoverSearchResult(from: $0.document) } ?? []
     }
 
     // MARK: - Editions
