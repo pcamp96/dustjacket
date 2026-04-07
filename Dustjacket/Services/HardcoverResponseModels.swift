@@ -199,6 +199,24 @@ struct HardcoverTrendingBook: Codable, Sendable {
     let users_count: Int?
 }
 
+// MARK: - Goals
+
+struct HardcoverGoal: Codable, Sendable {
+    let id: Int
+    let goal: Int
+    let metric: String?
+    let description: String?
+    let start_date: String?
+    let end_date: String?
+    let progress: Double?
+    let completed_at: String?
+    let archived: Bool?
+}
+
+struct HardcoverMeGoals: Codable, Sendable {
+    let goals: [HardcoverGoal]
+}
+
 // MARK: - User Book Mutation Response
 
 struct HardcoverUserBookMutationResponse: Codable, Sendable {

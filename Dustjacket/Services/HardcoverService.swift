@@ -16,6 +16,9 @@ protocol HardcoverServiceProtocol: Sendable {
     func insertUserBook(bookId: Int, statusId: Int) async throws -> HardcoverUserBook
     func updateUserBook(id: Int, statusId: Int?, rating: Double?) async throws -> HardcoverUserBook
     func deleteUserBook(id: Int) async throws
+    func getUserGoals() async throws -> [HardcoverGoal]
+    func insertGoal(metric: String, goal: Int, startDate: String, endDate: String, description: String) async throws -> Int
+    func deleteGoal(id: Int) async throws
 }
 
 // MARK: - Implementation
@@ -425,6 +428,80 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
             query: query,
             variables: ["id": id],
             responseKeyPath: "delete_user_book",
+            responseType: HardcoverIDResponse.self
+        )
+    }
+
+    // MARK: - Goals
+
+    func getUserGoals() async throws -> [HardcoverGoal] {
+        let query = """
+        {
+            me {
+                goals(order_by: { created_at: desc }) {
+                    id
+                    goal
+                    metric
+                    description
+                    start_date
+                    end_date
+                    progress
+                    completed_at
+                    archived
+                }
+            }
+        }
+        """
+        let meArray: [HardcoverMeGoals] = try await client.execute(
+            query: query,
+            variables: nil,
+            responseKeyPath: "me",
+            responseType: [HardcoverMeGoals].self
+        )
+        return meArray.first?.goals ?? []
+    }
+
+    func insertGoal(metric: String, goal: Int, startDate: String, endDate: String, description: String) async throws -> Int {
+        let escapedDesc = description.replacingOccurrences(of: "\"", with: "\\\"")
+        let query = """
+        {
+            insert_goal(object: {
+                metric: "\(metric)",
+                goal: \(goal),
+                start_date: "\(startDate)",
+                end_date: "\(endDate)",
+                description: "\(escapedDesc)",
+                privacy_setting_id: 1
+            }) {
+                id
+                errors
+            }
+        }
+        """
+        let response: HardcoverMutationResponse = try await client.execute(
+            query: query,
+            variables: nil,
+            responseKeyPath: "insert_goal",
+            responseType: HardcoverMutationResponse.self
+        )
+        if let errors = response.errors, !errors.isEmpty {
+            throw GraphQLClientError.graphQLErrors(errors)
+        }
+        return response.id ?? 0
+    }
+
+    func deleteGoal(id: Int) async throws {
+        let query = """
+        mutation DeleteGoal($id: Int!) {
+            delete_goal(id: $id) {
+                id
+            }
+        }
+        """
+        let _: HardcoverIDResponse = try await client.execute(
+            query: query,
+            variables: ["id": id],
+            responseKeyPath: "delete_goal",
             responseType: HardcoverIDResponse.self
         )
     }
