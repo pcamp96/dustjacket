@@ -82,7 +82,7 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
     func getEditionByISBN(_ isbn: String) async throws -> [HardcoverEdition] {
         let query = """
         query EditionByISBN($isbn: String!) {
-            editions(where: { isbn_13: { _eq: $isbn } }) {
+            editions(where: { _or: [{ isbn_13: { _eq: $isbn } }, { isbn_10: { _eq: $isbn } }] }) {
                 id
                 title
                 isbn_13

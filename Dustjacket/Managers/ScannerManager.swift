@@ -5,83 +5,63 @@ import Vision
 final class ScannerManager: ObservableObject {
     @Published var scanState: ScanState = .scanning
     @Published var scannedEdition: Edition?
+    @Published var searchResults: [HardcoverSearchResult] = []
     @Published var errorMessage: String?
     @Published var isLookingUp = false
 
     private let isbnLookup: ISBNLookupService
+    private let hardcoverService: HardcoverServiceProtocol
+    private var accumulatedText: Set<String> = []
+    private var textSearchTask: Task<Void, Never>?
 
     init(hardcoverService: HardcoverServiceProtocol) {
+        self.hardcoverService = hardcoverService
         self.isbnLookup = ISBNLookupService(hardcoverService: hardcoverService)
     }
 
-    // MARK: - Barcode Scan Result
+    // MARK: - Tier 1: Barcode
 
     func handleBarcodeDetected(_ barcode: String) async {
         guard !isLookingUp else { return }
 
         let isbn = barcode.filter(\.isNumber)
         guard isbn.count == 10 || isbn.count == 13 else {
-            return // Silently ignore non-ISBN barcodes (e.g. store price stickers)
+            return
         }
 
+        textSearchTask?.cancel()
         await lookupISBN(isbn)
     }
 
-    // MARK: - Live Text Detection
+    // MARK: - Tier 2 & 3: Text (ISBN detection → title search fallback)
 
     func handleTextDetected(_ text: String) async {
         guard !isLookingUp else { return }
 
-        // Look for ISBN patterns in the recognized text
+        // Tier 2: Check for ISBN in the text
         if let isbn = ISBNLookupService.extractISBN(from: text) {
+            textSearchTask?.cancel()
             await lookupISBN(isbn)
-        }
-    }
-
-    // MARK: - OCR
-
-    func processOCRImage(_ imageData: Data) async {
-        guard !isLookingUp else { return }
-
-        scanState = .processingOCR
-
-        // Run text recognition off-main
-        let extractedISBN: String? = await withCheckedContinuation { continuation in
-            let request = VNRecognizeTextRequest { request, error in
-                guard let observations = request.results as? [VNRecognizedTextObservation] else {
-                    continuation.resume(returning: nil)
-                    return
-                }
-
-                let allText = observations
-                    .compactMap { $0.topCandidates(1).first?.string }
-                    .joined(separator: " ")
-
-                continuation.resume(returning: ISBNLookupService.extractISBN(from: allText))
-            }
-            request.recognitionLevel = .accurate
-            request.usesLanguageCorrection = false
-
-            guard let cgImage = createCGImage(from: imageData) else {
-                continuation.resume(returning: nil)
-                return
-            }
-
-            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-            try? handler.perform([request])
+            return
         }
 
-        if let isbn = extractedISBN {
-            await lookupISBN(isbn)
-        } else {
-            errorMessage = "Could not find an ISBN in the image"
-            scanState = .scanning
+        // Tier 3: Accumulate text for title/author search
+        let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard cleaned.count >= 3 else { return }
+        accumulatedText.insert(cleaned)
+
+        // Debounce: wait for text to settle, then search by best candidate
+        textSearchTask?.cancel()
+        textSearchTask = Task {
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled, !isLookingUp else { return }
+            await searchByAccumulatedText()
         }
     }
 
     // MARK: - ISBN Lookup
 
-    func lookupISBN(_ isbn: String) async {
+    private func lookupISBN(_ isbn: String) async {
         isLookingUp = true
         errorMessage = nil
         scanState = .lookingUp
@@ -91,11 +71,41 @@ final class ScannerManager: ObservableObject {
                 scannedEdition = edition
                 scanState = .found
             } else {
-                errorMessage = "Book not found in Hardcover"
-                scanState = .notFound
+                // ISBN not found — don't show error, let text fallback continue
+                scanState = .scanning
+                isLookingUp = false
+                return
             }
         } catch {
-            errorMessage = "Lookup failed: \(error.localizedDescription)"
+            scanState = .scanning
+            isLookingUp = false
+            return
+        }
+
+        isLookingUp = false
+    }
+
+    // MARK: - Title/Author Search (Tier 3)
+
+    private func searchByAccumulatedText() async {
+        // Pick the longest text fragment as the most likely title
+        guard let bestCandidate = accumulatedText
+            .filter({ $0.count >= 4 })
+            .filter({ !$0.allSatisfy(\.isNumber) }) // Skip pure numbers
+            .max(by: { $0.count < $1.count }) else { return }
+
+        isLookingUp = true
+        scanState = .searchingByText
+
+        do {
+            let results = try await hardcoverService.searchBooks(query: bestCandidate, page: 1, perPage: 5)
+            if !results.isEmpty {
+                searchResults = results
+                scanState = .searchResults
+            } else {
+                scanState = .scanning
+            }
+        } catch {
             scanState = .scanning
         }
 
@@ -107,32 +117,11 @@ final class ScannerManager: ObservableObject {
     func reset() {
         scanState = .scanning
         scannedEdition = nil
+        searchResults = []
         errorMessage = nil
         isLookingUp = false
-    }
-
-    // MARK: - Helpers
-
-    private func createCGImage(from data: Data) -> CGImage? {
-        guard let dataProvider = CGDataProvider(data: data as CFData),
-              let cgImage = CGImage(
-                  pngDataProviderSource: dataProvider,
-                  decode: nil,
-                  shouldInterpolate: true,
-                  intent: .defaultIntent
-              ) else {
-            // Try JPEG
-            if let uiImage = UIImageFromData(data) {
-                return uiImage
-            }
-            return nil
-        }
-        return cgImage
-    }
-
-    private func UIImageFromData(_ data: Data) -> CGImage? {
-        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
-        return CGImageSourceCreateImageAtIndex(source, 0, nil)
+        accumulatedText = []
+        textSearchTask?.cancel()
     }
 }
 
@@ -142,6 +131,8 @@ enum ScanState: Equatable {
     case scanning
     case lookingUp
     case processingOCR
+    case searchingByText
     case found
+    case searchResults
     case notFound
 }

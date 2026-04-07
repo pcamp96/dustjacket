@@ -34,7 +34,16 @@ struct ScannerView: View {
                 VStack(spacing: 16) {
                     ProgressView()
                         .scaleEffect(1.5)
-                    Text(manager.scanState == .processingOCR ? "Reading text..." : "Looking up book...")
+                    Text("Looking up book...")
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
+                }
+
+            case .searchingByText:
+                VStack(spacing: 16) {
+                    ProgressView()
+                        .scaleEffect(1.5)
+                    Text("Searching by cover text...")
                         .font(.headline)
                         .foregroundStyle(.secondary)
                 }
@@ -48,14 +57,12 @@ struct ScannerView: View {
                     )
                 }
 
+            case .searchResults:
+                searchResultsView
+
             case .notFound:
                 notFoundView
             }
-        }
-        .alert("Error", isPresented: .constant(manager.errorMessage != nil && manager.scanState == .scanning)) {
-            Button("OK") { manager.errorMessage = nil }
-        } message: {
-            Text(manager.errorMessage ?? "")
         }
     }
 
@@ -65,8 +72,7 @@ struct ScannerView: View {
         VStack {
             Spacer()
 
-            // Hint text
-            Text("Point at a barcode or printed ISBN")
+            Text("Point at a barcode, ISBN, or book cover")
                 .font(.caption)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
@@ -76,6 +82,97 @@ struct ScannerView: View {
             Spacer().frame(height: 40)
         }
     }
+
+    // MARK: - Search Results (from cover/title text)
+
+    private var searchResultsView: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Button {
+                    manager.reset()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                        Text("Scan")
+                    }
+                }
+                Spacer()
+            }
+            .padding()
+
+            Text("Is this your book?")
+                .font(.headline)
+                .padding(.bottom, 8)
+
+            List(manager.searchResults, id: \.id) { result in
+                Button {
+                    // Look up the full book by ID to get edition details
+                    Task { await selectSearchResult(result) }
+                } label: {
+                    HStack(spacing: 12) {
+                        if let url = result.imageURL, let imageURL = URL(string: url) {
+                            AsyncImage(url: imageURL) { image in
+                                image.resizable().scaledToFill()
+                            } placeholder: {
+                                RoundedRectangle(cornerRadius: 4).fill(.quaternary)
+                            }
+                            .frame(width: 44, height: 66)
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                        } else {
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(.quaternary)
+                                .frame(width: 44, height: 66)
+                                .overlay {
+                                    Image(systemName: "book.closed.fill")
+                                        .font(.caption)
+                                        .foregroundStyle(.tertiary)
+                                }
+                        }
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(result.title ?? "Unknown")
+                                .font(.subheadline.bold())
+                                .lineLimit(2)
+                            if !result.authorNames.isEmpty {
+                                Text(result.authorNames.joined(separator: ", "))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+            .listStyle(.plain)
+        }
+    }
+
+    private func selectSearchResult(_ result: HardcoverSearchResult) async {
+        guard let bookId = result.id else { return }
+
+        // Create a minimal edition from the search result so ScanResultView can display it
+        manager.scannedEdition = Edition(
+            id: 0,
+            bookId: bookId,
+            title: result.title,
+            isbn13: nil,
+            isbn10: nil,
+            format: nil,
+            pageCount: nil,
+            releaseDate: nil,
+            coverURL: result.imageURL,
+            bookTitle: result.title,
+            bookCoverURL: result.imageURL,
+            bookSlug: nil,
+            authorNames: result.authorNames,
+            seriesID: nil,
+            seriesName: nil,
+            seriesPosition: nil
+        )
+        manager.scanState = .found
+    }
+
+    // MARK: - Fallback Views
 
     private var cameraUnavailableView: some View {
         ContentUnavailableView(

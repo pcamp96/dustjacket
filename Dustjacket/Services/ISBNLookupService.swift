@@ -8,28 +8,27 @@ struct ISBNLookupService {
     }
 
     func lookup(isbn: String) async throws -> Edition? {
-        let normalized = normalizeISBN(isbn)
-        let editions = try await hardcoverService.getEditionByISBN(normalized)
-        return editions.first.map { Edition(from: $0) }
-    }
+        let cleaned = isbn.filter { $0.isNumber || $0 == "X" || $0 == "x" }
 
-    /// Convert ISBN-10 to ISBN-13, or clean up ISBN-13
-    private func normalizeISBN(_ isbn: String) -> String {
-        let digits = isbn.filter(\.isNumber)
-
-        if digits.count == 13 {
-            return digits
+        // Try the cleaned ISBN directly first (works for both ISBN-10 and ISBN-13)
+        let editions = try await hardcoverService.getEditionByISBN(cleaned)
+        if let first = editions.first {
+            return Edition(from: first)
         }
 
-        if digits.count == 10 {
-            return convertISBN10to13(digits)
+        // If ISBN-10, also try the converted ISBN-13
+        if cleaned.count == 10 {
+            let isbn13 = convertISBN10to13(cleaned)
+            let editions13 = try await hardcoverService.getEditionByISBN(isbn13)
+            if let first = editions13.first {
+                return Edition(from: first)
+            }
         }
 
-        // Return as-is for other lengths
-        return digits
+        return nil
     }
 
-    private func convertISBN10to13(_ isbn10: String) -> String {
+    func convertISBN10to13(_ isbn10: String) -> String {
         let prefix = "978"
         let base = prefix + isbn10.dropLast()
         let digits = base.compactMap { $0.wholeNumberValue }
