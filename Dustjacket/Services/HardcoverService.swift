@@ -238,41 +238,31 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
         mutation AddToList($bookId: Int!, $listId: Int!) {
             insert_list_book(object: { book_id: $bookId, list_id: $listId }) {
                 id
-                errors
             }
         }
         """
-        let response: HardcoverMutationResponse = try await client.execute(
+        let _: HardcoverIDResponse = try await client.execute(
             query: query,
             variables: ["bookId": bookId, "listId": listId],
             responseKeyPath: "insert_list_book",
-            responseType: HardcoverMutationResponse.self
+            responseType: HardcoverIDResponse.self
         )
-        if let errors = response.errors, !errors.isEmpty {
-            throw GraphQLClientError.graphQLErrors(errors)
-        }
     }
 
     func removeBookFromList(bookId: Int, listId: Int) async throws {
         let query = """
         mutation RemoveFromList($bookId: Int!, $listId: Int!) {
-            delete_list_book(
-                where: { book_id: { _eq: $bookId }, list_id: { _eq: $listId } }
-            ) {
+            delete_list_book(book_id: $bookId, list_id: $listId) {
                 id
-                errors
             }
         }
         """
-        let response: HardcoverMutationResponse = try await client.execute(
+        let _: HardcoverIDResponse = try await client.execute(
             query: query,
             variables: ["bookId": bookId, "listId": listId],
             responseKeyPath: "delete_list_book",
-            responseType: HardcoverMutationResponse.self
+            responseType: HardcoverIDResponse.self
         )
-        if let errors = response.errors, !errors.isEmpty {
-            throw GraphQLClientError.graphQLErrors(errors)
-        }
     }
 
     func deleteList(id: Int) async throws {
