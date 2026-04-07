@@ -14,6 +14,8 @@ final class ScannerManager: ObservableObject {
     private let hardcoverService: HardcoverServiceProtocol
     private var accumulatedText: Set<String> = []
     private var textSearchTask: Task<Void, Never>?
+    private var hasAttemptedTextSearch = false
+    private var failedISBNs: Set<String> = []
 
     init(hardcoverService: HardcoverServiceProtocol) {
         self.hardcoverService = hardcoverService
@@ -42,13 +44,15 @@ final class ScannerManager: ObservableObject {
         guard scanState == .scanning else { return }
 
         // Tier 2: Check for ISBN in the text
-        if let isbn = ISBNLookupService.extractISBN(from: text) {
+        if let isbn = ISBNLookupService.extractISBN(from: text), !failedISBNs.contains(isbn) {
             textSearchTask?.cancel()
             await lookupISBN(isbn)
             return
         }
 
-        // Tier 3: Accumulate text for title/author search
+        // Tier 3: Accumulate text for title/author search (only try once)
+        guard !hasAttemptedTextSearch else { return }
+
         let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard cleaned.count >= 3 else { return }
         accumulatedText.insert(cleaned)
@@ -56,8 +60,8 @@ final class ScannerManager: ObservableObject {
         // Debounce: wait for text to settle, then search by best candidate
         textSearchTask?.cancel()
         textSearchTask = Task {
-            try? await Task.sleep(for: .seconds(2))
-            guard !Task.isCancelled, !isLookingUp, scanState == .scanning else { return }
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled, !isLookingUp, scanState == .scanning, !hasAttemptedTextSearch else { return }
             await searchByAccumulatedText()
         }
     }
@@ -89,6 +93,9 @@ final class ScannerManager: ObservableObject {
                 )
                 scanState = .found
             } else {
+                // Remember this ISBN failed so we don't retry it
+                let cleaned = isbn.filter { $0.isNumber || $0 == "X" || $0 == "x" }
+                failedISBNs.insert(cleaned)
                 scanState = .scanning
                 isLookingUp = false
                 return
@@ -125,10 +132,12 @@ final class ScannerManager: ObservableObject {
     // MARK: - Title/Author Search (Tier 3)
 
     private func searchByAccumulatedText() async {
+        hasAttemptedTextSearch = true
+
         // Pick the longest text fragment as the most likely title
         guard let bestCandidate = accumulatedText
             .filter({ $0.count >= 4 })
-            .filter({ !$0.allSatisfy(\.isNumber) }) // Skip pure numbers
+            .filter({ !$0.allSatisfy(\.isNumber) })
             .max(by: { $0.count < $1.count }) else { return }
 
         isLookingUp = true
@@ -159,6 +168,8 @@ final class ScannerManager: ObservableObject {
         errorMessage = nil
         isLookingUp = false
         accumulatedText = []
+        hasAttemptedTextSearch = false
+        failedISBNs = []
         textSearchTask?.cancel()
     }
 }
