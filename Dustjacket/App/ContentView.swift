@@ -58,7 +58,7 @@ struct ContentView: View {
             case .home: return "house.fill"
             case .library: return "books.vertical.fill"
             case .scanner: return "barcode.viewfinder"
-            case .explore: return "compass.fill"
+            case .explore: return "safari.fill"
             case .search: return "magnifyingglass"
             }
         }

@@ -202,19 +202,30 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
         mutation CreateList($name: String!) {
             insert_list(object: { name: $name, privacy_setting_id: 1 }) {
                 id
-                name
-                slug
-                description
-                books_count
+                errors
+                list {
+                    id
+                    name
+                    slug
+                    description
+                    books_count
+                }
             }
         }
         """
-        return try await client.execute(
+        let response: HardcoverInsertListResponse = try await client.execute(
             query: query,
             variables: ["name": name],
             responseKeyPath: "insert_list",
-            responseType: HardcoverList.self
+            responseType: HardcoverInsertListResponse.self
         )
+        if let errors = response.errors, !errors.isEmpty {
+            throw GraphQLClientError.graphQLErrors(errors)
+        }
+        guard let list = response.list else {
+            throw GraphQLClientError.noData
+        }
+        return list
     }
 
     func addBookToList(bookId: Int, listId: Int) async throws {

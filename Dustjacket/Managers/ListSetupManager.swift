@@ -89,7 +89,15 @@ final class ListSetupManager: ObservableObject {
         }
 
         try? context.save()
-        step = .complete
+
+        // Only mark complete if at least some lists were created/mapped
+        let totalMapped = listsToMap.count + creationProgress
+        if totalMapped == 0 && !listsToCreate.isEmpty {
+            // All creations failed, stay on creating step so user sees the error
+            step = .creating
+        } else {
+            step = .complete
+        }
     }
 
     /// User manually selects a Hardcover list for a DJ list

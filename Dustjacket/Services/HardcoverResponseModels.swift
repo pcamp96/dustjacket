@@ -140,6 +140,12 @@ struct HardcoverMeLists: Codable, Sendable {
     let lists: [HardcoverList]
 }
 
+struct HardcoverInsertListResponse: Codable, Sendable {
+    let id: Int?
+    let errors: [String]?
+    let list: HardcoverList?
+}
+
 // MARK: - Search
 
 struct HardcoverSearchResponse: Codable, Sendable {
