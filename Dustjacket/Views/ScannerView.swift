@@ -15,9 +15,14 @@ struct ScannerView: View {
             switch manager.scanState {
             case .scanning:
                 if DataScannerViewController.isSupported && DataScannerViewController.isAvailable {
-                    DataScannerRepresentable(onBarcodeDetected: { barcode in
-                        Task { await manager.handleBarcodeDetected(barcode) }
-                    })
+                    DataScannerRepresentable(
+                        onBarcodeDetected: { barcode in
+                            Task { await manager.handleBarcodeDetected(barcode) }
+                        },
+                        onTextDetected: { text in
+                            Task { await manager.handleTextDetected(text) }
+                        }
+                    )
                     .ignoresSafeArea()
 
                     scanOverlay
@@ -59,18 +64,16 @@ struct ScannerView: View {
     private var scanOverlay: some View {
         VStack {
             Spacer()
-            HStack(spacing: 16) {
-                Button {
-                    // Manual search fallback — switch to Search tab
-                    // This will be wired to tab switching in integration
-                } label: {
-                    Label("Search", systemImage: "magnifyingglass")
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                }
-                .buttonStyle(.bordered)
-            }
-            .padding(.bottom, 40)
+
+            // Hint text
+            Text("Point at a barcode or printed ISBN")
+                .font(.caption)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(.ultraThinMaterial)
+                .clipShape(Capsule())
+
+            Spacer().frame(height: 40)
         }
     }
 
@@ -109,11 +112,16 @@ struct ScannerView: View {
 
 struct DataScannerRepresentable: UIViewControllerRepresentable {
     var onBarcodeDetected: (String) -> Void
+    var onTextDetected: (String) -> Void
 
     func makeUIViewController(context: Context) -> DataScannerViewController {
         let scanner = DataScannerViewController(
-            recognizedDataTypes: [.barcode(symbologies: [.ean13, .ean8, .upce])],
+            recognizedDataTypes: [
+                .barcode(symbologies: [.ean13, .ean8, .upce]),
+                .text()
+            ],
             qualityLevel: .balanced,
+            recognizesMultipleItems: true,
             isHighlightingEnabled: true
         )
         scanner.delegate = context.coordinator
@@ -127,26 +135,47 @@ struct DataScannerRepresentable: UIViewControllerRepresentable {
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onBarcodeDetected: onBarcodeDetected)
+        Coordinator(onBarcodeDetected: onBarcodeDetected, onTextDetected: onTextDetected)
     }
 
     class Coordinator: NSObject, DataScannerViewControllerDelegate {
         var onBarcodeDetected: (String) -> Void
+        var onTextDetected: (String) -> Void
         private var lastDetected: String?
+        private var hasTriggered = false
 
-        init(onBarcodeDetected: @escaping (String) -> Void) {
+        init(onBarcodeDetected: @escaping (String) -> Void, onTextDetected: @escaping (String) -> Void) {
             self.onBarcodeDetected = onBarcodeDetected
+            self.onTextDetected = onTextDetected
         }
 
         func dataScanner(_ dataScanner: DataScannerViewController, didAdd addedItems: [RecognizedItem], allItems: [RecognizedItem]) {
+            guard !hasTriggered else { return }
+
             for item in addedItems {
-                if case .barcode(let barcode) = item,
-                   let value = barcode.payloadStringValue,
-                   value != lastDetected {
-                    lastDetected = value
-                    onBarcodeDetected(value)
+                switch item {
+                case .barcode(let barcode):
+                    if let value = barcode.payloadStringValue, value != lastDetected {
+                        lastDetected = value
+                        hasTriggered = true
+                        onBarcodeDetected(value)
+                        return
+                    }
+                case .text(let text):
+                    let recognized = text.transcript
+                    if recognized != lastDetected {
+                        lastDetected = recognized
+                        onTextDetected(recognized)
+                    }
+                @unknown default:
+                    break
                 }
             }
+        }
+
+        func reset() {
+            lastDetected = nil
+            hasTriggered = false
         }
     }
 }

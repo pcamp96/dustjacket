@@ -21,11 +21,21 @@ final class ScannerManager: ObservableObject {
 
         let isbn = barcode.filter(\.isNumber)
         guard isbn.count == 10 || isbn.count == 13 else {
-            errorMessage = "Not a valid ISBN barcode"
-            return
+            return // Silently ignore non-ISBN barcodes (e.g. store price stickers)
         }
 
         await lookupISBN(isbn)
+    }
+
+    // MARK: - Live Text Detection
+
+    func handleTextDetected(_ text: String) async {
+        guard !isLookingUp else { return }
+
+        // Look for ISBN patterns in the recognized text
+        if let isbn = ISBNLookupService.extractISBN(from: text) {
+            await lookupISBN(isbn)
+        }
     }
 
     // MARK: - OCR

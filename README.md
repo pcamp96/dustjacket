@@ -45,8 +45,8 @@ Tap your profile avatar to access:
 
 ## Requirements
 
-- iOS 26.0+
-- Xcode 26+
+- iOS 17.0+
+- Xcode 15+
 - A [Hardcover](https://hardcover.app) account with an API token
 
 ## Getting Started
@@ -83,7 +83,7 @@ The app will validate your token, run the list setup wizard to create or match y
 | **Models** | Domain structs (`Book`, `Edition`, `DJList`) decoupled from API response models (`HardcoverBook`, `HardcoverEdition`) |
 | **Persistence** | Swift Data `@Model` classes for offline cache (`CachedBook`, `CachedEdition`, `ListMapping`, `PendingMutation`) |
 | **Views** | SwiftUI views organized by feature — no storyboards, no UIKit (except VisionKit scanner wrapper) |
-| **Theme** | `DustjacketTheme` (Hardcover-inspired dark palette) + `GlassModifiers` (iOS 26 Liquid Glass preparation) |
+| **Theme** | `DustjacketTheme` (Hardcover-inspired dark palette) + `GlassModifiers` |
 
 ### Key Design Decisions
 
@@ -108,7 +108,7 @@ Dustjacket/
 
 ## Tech Stack
 
-- **UI**: SwiftUI (iOS 26), Liquid Glass
+- **UI**: SwiftUI
 - **Networking**: URLSession + GraphQL (Hardcover API)
 - **Persistence**: Swift Data
 - **Scanning**: VisionKit (DataScanner), Vision (OCR)
@@ -117,4 +117,4 @@ Dustjacket/
 
 ## License
 
-Private project. All rights reserved.
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.

@@ -2,8 +2,8 @@ name: Dustjacket
 options:
   bundleIdPrefix: com.campanale
   deploymentTarget:
-    iOS: "26.0"
-  xcodeVersion: "26"
+    iOS: "17.0"
+  xcodeVersion: "15"
   defaultConfig: Debug
 settings:
   base:
