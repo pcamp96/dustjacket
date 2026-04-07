@@ -88,7 +88,10 @@ private struct ListMatchRow: View {
 
             if showPicker {
                 Picker("Choose a list", selection: Binding(
-                    get: { match.selectedListId },
+                    get: {
+                        if match.wantsCreate { return nil as Int? }
+                        return match.selectedListId ?? match.matchedList?.id
+                    },
                     set: { onSelect($0) }
                 )) {
                     Text("Create new").tag(nil as Int?)
@@ -110,14 +113,18 @@ private struct ListMatchRow: View {
 
     @ViewBuilder
     private var statusBadge: some View {
-        if match.isAutoMatched {
-            Label("Matched", systemImage: "checkmark.circle.fill")
+        if match.shouldCreate {
+            Label("New", systemImage: "plus.circle")
                 .font(.caption)
-                .foregroundStyle(.green)
-        } else if match.isResolved {
+                .foregroundStyle(.orange)
+        } else if match.selectedListId != nil {
             Label("Assigned", systemImage: "hand.point.right.fill")
                 .font(.caption)
                 .foregroundStyle(.blue)
+        } else if match.isAutoMatched {
+            Label("Matched", systemImage: "checkmark.circle.fill")
+                .font(.caption)
+                .foregroundStyle(.green)
         } else {
             Label("New", systemImage: "plus.circle")
                 .font(.caption)

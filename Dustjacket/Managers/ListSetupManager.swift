@@ -37,8 +37,8 @@ final class ListSetupManager: ObservableObject {
     }
 
     func createMissingLists(context: ModelContext) async {
-        let listsToCreate = matchResults.filter { $0.matchedList == nil && $0.selectedListId == nil }
-        let listsToMap = matchResults.filter { $0.matchedList != nil || $0.selectedListId != nil }
+        let listsToCreate = matchResults.filter { $0.shouldCreate }
+        let listsToMap = matchResults.filter { $0.shouldMapToExisting }
 
         step = .creating
         creationTotal = listsToCreate.count
@@ -100,10 +100,17 @@ final class ListSetupManager: ObservableObject {
         }
     }
 
-    /// User manually selects a Hardcover list for a DJ list
+    /// User manually selects a Hardcover list (or "Create new") for a DJ list
     func assignList(djListKey: String, hardcoverListId: Int?) {
         if let index = matchResults.firstIndex(where: { $0.djList.key == djListKey }) {
-            matchResults[index].selectedListId = hardcoverListId
+            if let listId = hardcoverListId {
+                matchResults[index].selectedListId = listId
+                matchResults[index].wantsCreate = false
+            } else {
+                // User picked "Create new"
+                matchResults[index].selectedListId = nil
+                matchResults[index].wantsCreate = true
+            }
         }
     }
 
@@ -196,18 +203,32 @@ struct DJListMatch: Identifiable {
     var matchedList: HardcoverList?
     var matchDistance: Int
     var selectedListId: Int?
+    var wantsCreate: Bool = false
 
     var id: String { djList.key }
 
     var isAutoMatched: Bool {
-        matchDistance <= 3 && matchedList != nil
+        matchDistance <= 3 && matchedList != nil && !wantsCreate
+    }
+
+    /// Whether this item should use an existing list (either auto-matched or user-selected)
+    var shouldMapToExisting: Bool {
+        if wantsCreate { return false }
+        return selectedListId != nil || (matchedList != nil && matchDistance <= 3)
+    }
+
+    /// Whether this item needs a new list created
+    var shouldCreate: Bool {
+        if wantsCreate { return true }
+        return matchedList == nil && selectedListId == nil
     }
 
     var isResolved: Bool {
-        selectedListId != nil
+        selectedListId != nil || wantsCreate
     }
 
     var displayMatchName: String? {
+        if wantsCreate { return nil }
         if let selectedId = selectedListId,
            let matched = matchedList, matched.id == selectedId {
             return matched.name
