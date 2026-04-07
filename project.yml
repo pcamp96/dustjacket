@@ -1,0 +1,30 @@
+name: Dustjacket
+options:
+  bundleIdPrefix: com.dustjacket
+  deploymentTarget:
+    iOS: "26.0"
+  xcodeVersion: "26"
+  defaultConfig: Debug
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    TARGETED_DEVICE_FAMILY: "1"
+    INFOPLIST_KEY_CFBundleDisplayName: Dustjacket
+targets:
+  Dustjacket:
+    type: application
+    platform: iOS
+    sources:
+      - Dustjacket
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dustjacket.app
+        INFOPLIST_KEY_UILaunchScreen_Generation: true
+        INFOPLIST_KEY_NSCameraUsageDescription: "Dustjacket uses your camera to scan book barcodes"
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: true
+        GENERATE_INFOPLIST_FILE: true
+        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: "1.0.0"
+        CODE_SIGN_STYLE: Automatic
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SWIFT_EMIT_LOC_STRINGS: "YES"
