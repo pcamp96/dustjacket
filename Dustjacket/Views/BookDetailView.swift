@@ -67,6 +67,13 @@ struct BookDetailView: View {
                     .padding(.horizontal)
                 }
 
+                // Format Collection (Owned / Want per format)
+                FormatCollectionView(bookId: book.id, libraryManager: libraryManager)
+                    .padding()
+                    .background(.quaternary.opacity(0.5))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .padding(.horizontal)
+
                 // Metadata
                 VStack(spacing: 12) {
                     if let pages = book.pageCount {

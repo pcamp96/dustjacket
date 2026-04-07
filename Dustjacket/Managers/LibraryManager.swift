@@ -11,6 +11,14 @@ final class LibraryManager: ObservableObject {
     @Published var errorMessage: String?
     @Published var hasMorePages = true
 
+    /// Maps bookId → set of DJ list keys the book belongs to (e.g. "[DJ] Owned · Hardback")
+    @Published var bookListMembership: [Int: Set<String>] = [:]
+
+    /// Maps DJ list key → Hardcover list ID
+    private var listMappings: [String: Int] = [:]
+    /// Maps Hardcover list ID → DJ list key (reverse lookup)
+    private var reverseListMappings: [Int: String] = [:]
+
     private var hardcoverService: HardcoverServiceProtocol?
     private var modelContext: ModelContext?
     private var currentOffset = 0
@@ -46,6 +54,9 @@ final class LibraryManager: ObservableObject {
 
             // Cache locally
             cacheBooks(mapped)
+
+            // Load list memberships for filtering
+            await loadListMemberships()
         } catch {
             errorMessage = error.localizedDescription
             // Fall back to cached data
@@ -53,6 +64,42 @@ final class LibraryManager: ObservableObject {
         }
 
         isLoading = false
+    }
+
+    /// Load DJ list mappings from Swift Data + fetch which books are on which lists
+    func loadListMemberships() async {
+        guard let service = hardcoverService, let context = modelContext else { return }
+
+        // Load mappings from Swift Data
+        let descriptor = FetchDescriptor<ListMapping>()
+        guard let mappings = try? context.fetch(descriptor), !mappings.isEmpty else { return }
+
+        listMappings = [:]
+        reverseListMappings = [:]
+        for mapping in mappings {
+            listMappings[mapping.djListKey] = mapping.hardcoverListId
+            reverseListMappings[mapping.hardcoverListId] = mapping.djListKey
+        }
+
+        // Fetch all user lists with their book memberships
+        do {
+            let lists = try await service.getUserLists()
+            var membership: [Int: Set<String>] = [:]
+
+            for list in lists {
+                // Only process lists that are mapped to DJ lists
+                guard let djKey = reverseListMappings[list.id] else { continue }
+                guard let listBooks = list.list_books else { continue }
+
+                for listBook in listBooks {
+                    membership[listBook.book_id, default: []].insert(djKey)
+                }
+            }
+
+            bookListMembership = membership
+        } catch {
+            // Non-fatal — filtering just won't work until next refresh
+        }
     }
 
     func loadMoreIfNeeded(currentBook: Book) async {
@@ -88,9 +135,38 @@ final class LibraryManager: ObservableObject {
     // MARK: - Filtering
 
     func filteredBooks(ownership: OwnershipType?, format: BookFormat?) -> [Book] {
-        // For now, return all books. Full list-based filtering requires list membership data
-        // which we'll enhance when the list mappings are loaded.
-        books
+        // If no list memberships loaded yet, fall back to showing all
+        guard !bookListMembership.isEmpty else { return books }
+        guard let ownership else { return books }
+
+        return books.filter { book in
+            let memberKeys = bookListMembership[book.id] ?? []
+            if let format {
+                // Filter by specific ownership + format
+                return memberKeys.contains(ownership.listKey(for: format))
+            } else {
+                // Filter by ownership (any format)
+                return BookFormat.allCases.contains { fmt in
+                    memberKeys.contains(ownership.listKey(for: fmt))
+                }
+            }
+        }
+    }
+
+    /// Get which DJ lists a specific book belongs to
+    func djListsForBook(_ bookId: Int) -> Set<String> {
+        bookListMembership[bookId] ?? []
+    }
+
+    /// Check if a book is on a specific DJ list
+    func isBookOnList(_ bookId: Int, ownership: OwnershipType, format: BookFormat) -> Bool {
+        let key = ownership.listKey(for: format)
+        return bookListMembership[bookId]?.contains(key) ?? false
+    }
+
+    /// Get the Hardcover list ID for a DJ list key
+    func hardcoverListId(for djListKey: String) -> Int? {
+        listMappings[djListKey]
     }
 
     func currentlyReading() -> [Book] {
@@ -122,6 +198,24 @@ final class LibraryManager: ObservableObject {
             seriesPosition: old.seriesPosition, statusId: statusId,
             rating: old.rating, userBookId: old.userBookId
         )
+    }
+
+    /// Toggle a book on/off a DJ list (e.g., mark as Owned · Hardback)
+    func toggleBookOnDJList(bookId: Int, ownership: OwnershipType, format: BookFormat) {
+        let djKey = ownership.listKey(for: format)
+        guard let listId = listMappings[djKey] else { return }
+
+        let isCurrentlyOn = bookListMembership[bookId]?.contains(djKey) ?? false
+
+        if isCurrentlyOn {
+            // Remove from list
+            bookListMembership[bookId]?.remove(djKey)
+            SyncManager.shared.enqueueRemoveFromList(bookId: bookId, listId: listId)
+        } else {
+            // Add to list
+            bookListMembership[bookId, default: []].insert(djKey)
+            SyncManager.shared.enqueueAddToList(bookId: bookId, listId: listId)
+        }
     }
 
     func updateBookRatingOptimistically(bookId: Int, rating: Double) {

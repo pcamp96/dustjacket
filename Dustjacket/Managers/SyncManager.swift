@@ -37,13 +37,13 @@ final class SyncManager: ObservableObject {
         refreshPendingCount()
     }
 
-    func enqueueAddToList(bookId: Int, listId: Int) async {
+    func enqueueAddToList(bookId: Int, listId: Int) {
         let payload = MutationPayload(bookId: bookId, listId: listId)
         MutationQueue.shared.enqueue(mutationType: "insert_list_book", payload: payload)
         refreshPendingCount()
     }
 
-    func enqueueRemoveFromList(bookId: Int, listId: Int) async {
+    func enqueueRemoveFromList(bookId: Int, listId: Int) {
         let payload = MutationPayload(bookId: bookId, listId: listId)
         MutationQueue.shared.enqueue(mutationType: "delete_list_book", payload: payload)
         refreshPendingCount()
