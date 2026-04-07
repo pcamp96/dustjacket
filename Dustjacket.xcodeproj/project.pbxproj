@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		00923E63266A12AB1F3549C4 /* ProgressUpdateSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95A7DB67611A66A6345478CB /* ProgressUpdateSheet.swift */; };
 		017977B296443AE23FE35D54 /* UserProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B217E99316F3902CF5DEE00 /* UserProfile.swift */; };
 		0360C34CCAF65631BB3283AD /* ProfileManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3D840DB9853ADB5F401F30F /* ProfileManager.swift */; };
 		03AC87D17EC1D8F64447AF7F /* SocialView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A97457C41E758E7824AB46B /* SocialView.swift */; };
@@ -31,6 +32,7 @@
 		7D0F5655941C047A9621AA1A /* StatusPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAD8F6744E6DF7DED5693B0B /* StatusPickerView.swift */; };
 		82E60D430BC9D4D2E054035B /* PendingMutation.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5640D2C9239DC9C9196E753 /* PendingMutation.swift */; };
 		869695827230A5A03BC245E4 /* LibraryManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57E7DBCFB5104596A72D9094 /* LibraryManager.swift */; };
+		87B05FCA75EFA8BDC7599CCA /* StarRatingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9EA888D07C91399C4A9C230 /* StarRatingView.swift */; };
 		8D00C17F1AFD654EC22A246D /* FormatFilterBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FD1BF57566C00ADD076D0CB /* FormatFilterBar.swift */; };
 		8E93C1018E7899F07DDD4B40 /* HardcoverResponseModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 279D2AD03B4C63653A2D0E7E /* HardcoverResponseModels.swift */; };
 		90C34C6050D70C49F527A4E2 /* CachedBook.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C9105DF54F01C5367A703A6 /* CachedBook.swift */; };
@@ -94,13 +96,15 @@
 		7FBFA22A6E0B9DAB9FD4AAD9 /* MutationQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MutationQueue.swift; sourceTree = "<group>"; };
 		8579C0C5D08592295F2316D9 /* HardcoverService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HardcoverService.swift; sourceTree = "<group>"; };
 		8FD1BF57566C00ADD076D0CB /* FormatFilterBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormatFilterBar.swift; sourceTree = "<group>"; };
+		95A7DB67611A66A6345478CB /* ProgressUpdateSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressUpdateSheet.swift; sourceTree = "<group>"; };
 		967BA0943265A84CA35A9131 /* ListCreationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListCreationView.swift; sourceTree = "<group>"; };
 		9AD23C37AEF242D0398BEC1F /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
 		9C9105DF54F01C5367A703A6 /* CachedBook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedBook.swift; sourceTree = "<group>"; };
 		A3D840DB9853ADB5F401F30F /* ProfileManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileManager.swift; sourceTree = "<group>"; };
 		A777A9E21727EFFB408069AC /* ListMatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListMatchView.swift; sourceTree = "<group>"; };
+		A9EA888D07C91399C4A9C230 /* StarRatingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StarRatingView.swift; sourceTree = "<group>"; };
 		B295402AD00E27A6178BFACC /* OwnershipType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OwnershipType.swift; sourceTree = "<group>"; };
-		B3FBD3FA2AF813964286968E /* Dustjacket.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Dustjacket.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B3FBD3FA2AF813964286968E /* Dustjacket.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Dustjacket.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B4618EE33B89C0157F6649B8 /* CachedEdition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedEdition.swift; sourceTree = "<group>"; };
 		B5640D2C9239DC9C9196E753 /* PendingMutation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingMutation.swift; sourceTree = "<group>"; };
 		BF32988E646F9B4690E30BE7 /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
@@ -145,6 +149,8 @@
 			isa = PBXGroup;
 			children = (
 				CC22CD83CA57558F664E6F5E /* FormatCollectionView.swift */,
+				95A7DB67611A66A6345478CB /* ProgressUpdateSheet.swift */,
+				A9EA888D07C91399C4A9C230 /* StarRatingView.swift */,
 				CAD8F6744E6DF7DED5693B0B /* StatusPickerView.swift */,
 			);
 			path = Components;
@@ -368,12 +374,14 @@
 				F540F5427947A60788F9FA9E /* OwnershipType.swift in Sources */,
 				82E60D430BC9D4D2E054035B /* PendingMutation.swift in Sources */,
 				0360C34CCAF65631BB3283AD /* ProfileManager.swift in Sources */,
+				00923E63266A12AB1F3549C4 /* ProgressUpdateSheet.swift in Sources */,
 				BE6DBABDE266C8003533AF41 /* ScanResultView.swift in Sources */,
 				2A38E0EAFD7CCDFF7B160DAE /* ScannerManager.swift in Sources */,
 				9FD33AC9D5EAA1011F7C68C4 /* ScannerView.swift in Sources */,
 				E927C2EF4B16B309BBEAE08F /* SearchView.swift in Sources */,
 				95AE49DA8B01EDFE3A6227C3 /* SettingsView.swift in Sources */,
 				03AC87D17EC1D8F64447AF7F /* SocialView.swift in Sources */,
+				87B05FCA75EFA8BDC7599CCA /* StarRatingView.swift in Sources */,
 				C052857CD83B138A4262AF92 /* StatsView.swift in Sources */,
 				7D0F5655941C047A9621AA1A /* StatusPickerView.swift in Sources */,
 				A437EA0679F1DD2111516662 /* SyncManager.swift in Sources */,
@@ -392,7 +400,6 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 7YRDJ7AV9J;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Dustjacket uses your camera to scan book barcodes";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -483,7 +490,6 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 7YRDJ7AV9J;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Dustjacket uses your camera to scan book barcodes";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

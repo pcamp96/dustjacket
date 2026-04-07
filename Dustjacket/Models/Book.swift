@@ -14,6 +14,7 @@ struct Book: Identifiable, Codable, Hashable, Sendable {
     let statusId: Int?
     let rating: Double?
     let userBookId: Int?
+    let currentProgress: Int?
 
     var displayAuthor: String {
         authorNames.joined(separator: ", ")
@@ -33,6 +34,25 @@ struct Book: Identifiable, Codable, Hashable, Sendable {
     var hardcoverURL: URL? {
         guard let slug else { return nil }
         return URL(string: "https://hardcover.app/books/\(slug)")
+    }
+
+    /// Create a copy with modified fields
+    func with(
+        statusId: Int?? = nil,
+        rating: Double?? = nil,
+        userBookId: Int?? = nil,
+        currentProgress: Int?? = nil
+    ) -> Book {
+        Book(
+            id: id, title: title, authorNames: authorNames,
+            coverURL: coverURL, slug: slug, pageCount: pageCount,
+            isbn13: isbn13, seriesID: seriesID, seriesName: seriesName,
+            seriesPosition: seriesPosition,
+            statusId: statusId ?? self.statusId,
+            rating: rating ?? self.rating,
+            userBookId: userBookId ?? self.userBookId,
+            currentProgress: currentProgress ?? self.currentProgress
+        )
     }
 }
 
@@ -54,6 +74,7 @@ extension Book {
         self.statusId = userBook.status_id
         self.rating = userBook.rating
         self.userBookId = userBook.id
+        self.currentProgress = nil
     }
 
     init(from hcBook: HardcoverBook, statusId: Int? = nil, rating: Double? = nil, userBookId: Int? = nil) {
@@ -70,6 +91,7 @@ extension Book {
         self.statusId = statusId
         self.rating = rating
         self.userBookId = userBookId
+        self.currentProgress = nil
     }
 
     private static func extractAuthors(from book: HardcoverBook) -> [String] {
@@ -101,5 +123,6 @@ extension Book {
         self.statusId = cached.hardcoverStatusId
         self.rating = cached.rating
         self.userBookId = cached.userBookId
+        self.currentProgress = nil
     }
 }

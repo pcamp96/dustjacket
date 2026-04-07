@@ -48,7 +48,8 @@ struct SearchView: View {
                             seriesPosition: edition.seriesPosition,
                             statusId: nil,
                             rating: nil,
-                            userBookId: nil
+                            userBookId: nil,
+                            currentProgress: nil
                         ))
                     } label: {
                         editionResultRow(edition)
@@ -71,7 +72,8 @@ struct SearchView: View {
                             seriesPosition: nil,
                             statusId: nil,
                             rating: nil,
-                            userBookId: nil
+                            userBookId: nil,
+                            currentProgress: nil
                         ))
                     } label: {
                         searchResultRow(result)

@@ -63,7 +63,8 @@ final class ScannerManager: ObservableObject {
                     seriesPosition: edition.seriesPosition,
                     statusId: nil,
                     rating: nil,
-                    userBookId: nil
+                    userBookId: nil,
+                    currentProgress: nil
                 )
                 foundBook = book
                 scanState = .found

@@ -3,6 +3,7 @@ import SwiftUI
 struct BookDetailView: View {
     @State private var book: Book
     @ObservedObject private var libraryManager = LibraryManager.shared
+    @State private var showProgressSheet = false
 
     init(book: Book) {
         _book = State(initialValue: book)
@@ -47,6 +48,41 @@ struct BookDetailView: View {
                     .clipShape(Capsule())
                 }
 
+                // Star Rating (only when book is in library)
+                if book.userBookId != nil {
+                    VStack(spacing: 4) {
+                        Text("Your Rating")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        StarRatingView(rating: book.rating ?? 0) { newRating in
+                            updateRating(newRating)
+                        }
+                    }
+                }
+
+                // Reading Progress (only when currently reading)
+                if book.statusId == 2, let pages = book.pageCount, pages > 0 {
+                    VStack(spacing: 8) {
+                        ProgressView(value: Double(book.currentProgress ?? 0), total: Double(pages))
+                            .tint(.orange)
+
+                        HStack {
+                            Text("\(book.currentProgress ?? 0) of \(pages) pages")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Button("Update") {
+                                showProgressSheet = true
+                            }
+                            .font(.caption)
+                        }
+                    }
+                    .padding()
+                    .background(.quaternary.opacity(0.5))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .padding(.horizontal)
+                }
+
                 // Reading Status Picker
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Reading Status")
@@ -79,10 +115,6 @@ struct BookDetailView: View {
                     if let pages = book.pageCount {
                         metadataRow(label: "Pages", value: "\(pages)")
                     }
-
-                    if let rating = book.rating, rating > 0 {
-                        metadataRow(label: "Your Rating", value: String(repeating: "★", count: Int(rating)))
-                    }
                 }
                 .padding()
                 .background(.quaternary.opacity(0.5))
@@ -102,41 +134,51 @@ struct BookDetailView: View {
         }
         .navigationTitle(book.title)
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showProgressSheet) {
+            ProgressUpdateSheet(
+                bookTitle: book.title,
+                totalPages: book.pageCount,
+                currentPage: book.currentProgress ?? 0,
+                onSave: { pages in
+                    updateProgress(pages: pages)
+                },
+                onMarkFinished: {
+                    changeStatus(to: 3) // Mark as Read
+                }
+            )
+        }
     }
 
     // MARK: - Actions
 
     private func changeStatus(to statusId: Int) {
         if let userBookId = book.userBookId {
-            // Update existing user_book
             SyncManager.shared.enqueueUpdateUserBook(userBookId: userBookId, statusId: statusId)
         } else {
-            // Insert new user_book
             SyncManager.shared.enqueueInsertUserBook(bookId: book.id, statusId: statusId)
         }
 
-        // Optimistic update
         libraryManager.updateBookStatusOptimistically(bookId: book.id, statusId: statusId)
-        book = Book(
-            id: book.id, title: book.title, authorNames: book.authorNames,
-            coverURL: book.coverURL, slug: book.slug, pageCount: book.pageCount,
-            isbn13: book.isbn13, seriesID: book.seriesID, seriesName: book.seriesName,
-            seriesPosition: book.seriesPosition, statusId: statusId,
-            rating: book.rating, userBookId: book.userBookId
-        )
+        book = book.with(statusId: statusId)
     }
 
     private func removeFromLibrary() {
         guard let userBookId = book.userBookId else { return }
         SyncManager.shared.enqueueDeleteUserBook(userBookId: userBookId)
         libraryManager.removeBookOptimistically(id: book.id)
-        book = Book(
-            id: book.id, title: book.title, authorNames: book.authorNames,
-            coverURL: book.coverURL, slug: book.slug, pageCount: book.pageCount,
-            isbn13: book.isbn13, seriesID: book.seriesID, seriesName: book.seriesName,
-            seriesPosition: book.seriesPosition, statusId: nil,
-            rating: nil, userBookId: nil
-        )
+        book = book.with(statusId: nil, rating: nil, userBookId: nil)
+    }
+
+    private func updateRating(_ rating: Double) {
+        guard let userBookId = book.userBookId else { return }
+        SyncManager.shared.enqueueUpdateUserBook(userBookId: userBookId, rating: rating)
+        libraryManager.updateBookRatingOptimistically(bookId: book.id, rating: rating)
+        book = book.with(rating: rating)
+    }
+
+    private func updateProgress(pages: Int) {
+        // TODO: Wire to insert_user_book_read mutation when Phase 2 API is implemented
+        book = book.with(currentProgress: pages)
     }
 
     // MARK: - Helpers

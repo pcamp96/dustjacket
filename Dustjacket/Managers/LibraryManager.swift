@@ -204,14 +204,7 @@ final class LibraryManager: ObservableObject {
 
     func updateBookStatusOptimistically(bookId: Int, statusId: Int) {
         guard let index = books.firstIndex(where: { $0.id == bookId }) else { return }
-        let old = books[index]
-        books[index] = Book(
-            id: old.id, title: old.title, authorNames: old.authorNames,
-            coverURL: old.coverURL, slug: old.slug, pageCount: old.pageCount,
-            isbn13: old.isbn13, seriesID: old.seriesID, seriesName: old.seriesName,
-            seriesPosition: old.seriesPosition, statusId: statusId,
-            rating: old.rating, userBookId: old.userBookId
-        )
+        books[index] = books[index].with(statusId: statusId)
     }
 
     /// Toggle a book on/off a DJ list (e.g., mark as Owned · Hardback)
@@ -255,14 +248,7 @@ final class LibraryManager: ObservableObject {
 
     func updateBookRatingOptimistically(bookId: Int, rating: Double) {
         guard let index = books.firstIndex(where: { $0.id == bookId }) else { return }
-        let old = books[index]
-        books[index] = Book(
-            id: old.id, title: old.title, authorNames: old.authorNames,
-            coverURL: old.coverURL, slug: old.slug, pageCount: old.pageCount,
-            isbn13: old.isbn13, seriesID: old.seriesID, seriesName: old.seriesName,
-            seriesPosition: old.seriesPosition, statusId: old.statusId,
-            rating: rating, userBookId: old.userBookId
-        )
+        books[index] = books[index].with(rating: rating)
     }
 
     // MARK: - Cache
