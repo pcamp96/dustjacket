@@ -13,6 +13,9 @@ protocol HardcoverServiceProtocol: Sendable {
     func removeBookFromList(bookId: Int, listId: Int) async throws
     func deleteList(id: Int) async throws
     func getTrendingBooks(from: String, to: String, limit: Int, offset: Int) async throws -> [HardcoverTrendingBook]
+    func insertUserBook(bookId: Int, statusId: Int) async throws -> HardcoverUserBook
+    func updateUserBook(id: Int, statusId: Int?, rating: Double?) async throws -> HardcoverUserBook
+    func deleteUserBook(id: Int) async throws
 }
 
 // MARK: - Implementation
@@ -303,6 +306,114 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
             variables: ["from": from, "to": to, "limit": limit, "offset": offset],
             responseKeyPath: "books_trending",
             responseType: [HardcoverTrendingBook].self
+        )
+    }
+
+    // MARK: - User Book Mutations
+
+    func insertUserBook(bookId: Int, statusId: Int) async throws -> HardcoverUserBook {
+        let query = """
+        mutation InsertUserBook($bookId: Int!, $statusId: Int!) {
+            insert_user_book(object: { book_id: $bookId, status_id: $statusId }) {
+                id
+                error
+                user_book {
+                    id
+                    status_id
+                    rating
+                    created_at
+                    book {
+                        id
+                        title
+                        slug
+                        pages
+                        image { url }
+                        cached_contributors
+                        book_series {
+                            series { id name }
+                            position
+                        }
+                    }
+                }
+            }
+        }
+        """
+        let response: HardcoverUserBookMutationResponse = try await client.execute(
+            query: query,
+            variables: ["bookId": bookId, "statusId": statusId],
+            responseKeyPath: "insert_user_book",
+            responseType: HardcoverUserBookMutationResponse.self
+        )
+        if let error = response.error, !error.isEmpty {
+            throw GraphQLClientError.graphQLErrors([error])
+        }
+        guard let userBook = response.user_book else {
+            throw GraphQLClientError.noData
+        }
+        return userBook
+    }
+
+    func updateUserBook(id: Int, statusId: Int? = nil, rating: Double? = nil) async throws -> HardcoverUserBook {
+        // Build the object fields dynamically
+        var objectFields: [String] = []
+        if let statusId { objectFields.append("status_id: \(statusId)") }
+        if let rating { objectFields.append("rating: \(rating)") }
+        let objectStr = objectFields.joined(separator: ", ")
+
+        let query = """
+        mutation UpdateUserBook($id: Int!) {
+            update_user_book(id: $id, object: { \(objectStr) }) {
+                id
+                error
+                user_book {
+                    id
+                    status_id
+                    rating
+                    created_at
+                    book {
+                        id
+                        title
+                        slug
+                        pages
+                        image { url }
+                        cached_contributors
+                        book_series {
+                            series { id name }
+                            position
+                        }
+                    }
+                }
+            }
+        }
+        """
+        let response: HardcoverUserBookMutationResponse = try await client.execute(
+            query: query,
+            variables: ["id": id],
+            responseKeyPath: "update_user_book",
+            responseType: HardcoverUserBookMutationResponse.self
+        )
+        if let error = response.error, !error.isEmpty {
+            throw GraphQLClientError.graphQLErrors([error])
+        }
+        guard let userBook = response.user_book else {
+            throw GraphQLClientError.noData
+        }
+        return userBook
+    }
+
+    func deleteUserBook(id: Int) async throws {
+        let query = """
+        mutation DeleteUserBook($id: Int!) {
+            delete_user_book(id: $id) {
+                id
+            }
+        }
+        """
+        let _: HardcoverIDResponse = try await client.execute(
+            query: query,
+            variables: ["id": id],
+            responseKeyPath: "delete_user_book",
+            responseType: HardcoverIDResponse.self
         )
     }
 }

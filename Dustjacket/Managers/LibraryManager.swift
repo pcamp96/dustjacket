@@ -112,6 +112,30 @@ final class LibraryManager: ObservableObject {
         books.removeAll { $0.id == id }
     }
 
+    func updateBookStatusOptimistically(bookId: Int, statusId: Int) {
+        guard let index = books.firstIndex(where: { $0.id == bookId }) else { return }
+        let old = books[index]
+        books[index] = Book(
+            id: old.id, title: old.title, authorNames: old.authorNames,
+            coverURL: old.coverURL, slug: old.slug, pageCount: old.pageCount,
+            isbn13: old.isbn13, seriesID: old.seriesID, seriesName: old.seriesName,
+            seriesPosition: old.seriesPosition, statusId: statusId,
+            rating: old.rating, userBookId: old.userBookId
+        )
+    }
+
+    func updateBookRatingOptimistically(bookId: Int, rating: Double) {
+        guard let index = books.firstIndex(where: { $0.id == bookId }) else { return }
+        let old = books[index]
+        books[index] = Book(
+            id: old.id, title: old.title, authorNames: old.authorNames,
+            coverURL: old.coverURL, slug: old.slug, pageCount: old.pageCount,
+            isbn13: old.isbn13, seriesID: old.seriesID, seriesName: old.seriesName,
+            seriesPosition: old.seriesPosition, statusId: old.statusId,
+            rating: rating, userBookId: old.userBookId
+        )
+    }
+
     // MARK: - Cache
 
     private func cacheBooks(_ booksToCache: [Book]) {
@@ -129,7 +153,8 @@ final class LibraryManager: ObservableObject {
                 seriesName: book.seriesName,
                 seriesPosition: book.seriesPosition,
                 hardcoverStatusId: book.statusId,
-                rating: book.rating
+                rating: book.rating,
+                userBookId: book.userBookId
             )
             context.insert(cached)
         }

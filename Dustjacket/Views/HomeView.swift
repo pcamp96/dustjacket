@@ -47,7 +47,7 @@ struct HomeView: View {
             .padding(.vertical)
         }
         .navigationDestination(for: Book.self) { book in
-            BookDetailView(book: book, hardcoverService: libraryManager)
+            BookDetailView(book: book)
         }
         .task {
             if libraryManager.books.isEmpty {

@@ -49,6 +49,24 @@ final class SyncManager: ObservableObject {
         refreshPendingCount()
     }
 
+    func enqueueInsertUserBook(bookId: Int, statusId: Int) {
+        let payload = MutationPayload(bookId: bookId, statusId: statusId)
+        MutationQueue.shared.enqueue(mutationType: "insert_user_book", payload: payload)
+        refreshPendingCount()
+    }
+
+    func enqueueUpdateUserBook(userBookId: Int, statusId: Int? = nil, rating: Double? = nil) {
+        let payload = MutationPayload(statusId: statusId, userBookId: userBookId, rating: rating)
+        MutationQueue.shared.enqueue(mutationType: "update_user_book", payload: payload)
+        refreshPendingCount()
+    }
+
+    func enqueueDeleteUserBook(userBookId: Int) {
+        let payload = MutationPayload(userBookId: userBookId)
+        MutationQueue.shared.enqueue(mutationType: "delete_user_book", payload: payload)
+        refreshPendingCount()
+    }
+
     private func refreshPendingCount() {
         pendingCount = MutationQueue.shared.pendingCount()
         hasPendingMutations = pendingCount > 0

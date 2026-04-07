@@ -95,6 +95,24 @@ final class MutationQueue: ObservableObject {
             }
             try await service.removeBookFromList(bookId: bookId, listId: listId)
 
+        case "insert_user_book":
+            guard let bookId = payload.bookId, let statusId = payload.statusId else {
+                throw MutationError.missingFields
+            }
+            let _ = try await service.insertUserBook(bookId: bookId, statusId: statusId)
+
+        case "update_user_book":
+            guard let userBookId = payload.userBookId else {
+                throw MutationError.missingFields
+            }
+            let _ = try await service.updateUserBook(id: userBookId, statusId: payload.statusId, rating: payload.rating)
+
+        case "delete_user_book":
+            guard let userBookId = payload.userBookId else {
+                throw MutationError.missingFields
+            }
+            try await service.deleteUserBook(id: userBookId)
+
         default:
             throw MutationError.unknownType(mutation.mutationType)
         }
@@ -124,6 +142,9 @@ final class MutationQueue: ObservableObject {
 struct MutationPayload: Codable, Sendable {
     var bookId: Int?
     var listId: Int?
+    var statusId: Int?
+    var userBookId: Int?
+    var rating: Double?
 }
 
 // MARK: - Errors

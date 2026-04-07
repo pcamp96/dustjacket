@@ -168,6 +168,14 @@ struct HardcoverTrendingBook: Codable, Sendable {
     let users_count: Int?
 }
 
+// MARK: - User Book Mutation Response
+
+struct HardcoverUserBookMutationResponse: Codable, Sendable {
+    let id: Int?
+    let error: String?
+    let user_book: HardcoverUserBook?
+}
+
 // MARK: - Generic Response Types
 
 struct HardcoverIDResponse: Codable, Sendable {

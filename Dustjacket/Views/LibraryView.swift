@@ -63,7 +63,7 @@ struct LibraryView: View {
             }
         }
         .navigationDestination(for: Book.self) { book in
-            BookDetailView(book: book, hardcoverService: libraryManager)
+            BookDetailView(book: book)
         }
         .refreshable {
             await libraryManager.fetchLibrary(refresh: true)

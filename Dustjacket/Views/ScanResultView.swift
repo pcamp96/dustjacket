@@ -184,7 +184,8 @@ struct ScanResultView: View {
                 seriesName: edition.seriesName,
                 seriesPosition: edition.seriesPosition,
                 statusId: nil,
-                rating: nil
+                rating: nil,
+                userBookId: nil
             )
             LibraryManager.shared.addBookOptimistically(book)
 

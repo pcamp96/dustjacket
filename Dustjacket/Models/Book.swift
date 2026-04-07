@@ -13,6 +13,7 @@ struct Book: Identifiable, Codable, Hashable, Sendable {
     let seriesPosition: Double?
     let statusId: Int?
     let rating: Double?
+    let userBookId: Int?
 
     var displayAuthor: String {
         authorNames.joined(separator: ", ")
@@ -52,9 +53,10 @@ extension Book {
         self.seriesPosition = hcBook.book_series?.first?.position
         self.statusId = userBook.status_id
         self.rating = userBook.rating
+        self.userBookId = userBook.id
     }
 
-    init(from hcBook: HardcoverBook, statusId: Int? = nil, rating: Double? = nil) {
+    init(from hcBook: HardcoverBook, statusId: Int? = nil, rating: Double? = nil, userBookId: Int? = nil) {
         self.id = hcBook.id
         self.title = hcBook.title
         self.authorNames = Self.extractAuthors(from: hcBook)
@@ -67,6 +69,7 @@ extension Book {
         self.seriesPosition = hcBook.book_series?.first?.position
         self.statusId = statusId
         self.rating = rating
+        self.userBookId = userBookId
     }
 
     private static func extractAuthors(from book: HardcoverBook) -> [String] {
@@ -97,5 +100,6 @@ extension Book {
         self.seriesPosition = cached.seriesPosition
         self.statusId = cached.hardcoverStatusId
         self.rating = cached.rating
+        self.userBookId = cached.userBookId
     }
 }

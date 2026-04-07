@@ -1,8 +1,12 @@
 import SwiftUI
 
 struct BookDetailView: View {
-    let book: Book
-    let hardcoverService: Any // Will be properly typed when needed for mutations
+    @State private var book: Book
+    @ObservedObject private var libraryManager = LibraryManager.shared
+
+    init(book: Book) {
+        _book = State(initialValue: book)
+    }
 
     var body: some View {
         ScrollView {
@@ -43,11 +47,24 @@ struct BookDetailView: View {
                     .clipShape(Capsule())
                 }
 
-                // Status
-                if let statusLabel = book.statusLabel {
-                    Label(statusLabel, systemImage: statusIcon(for: book.statusId))
-                        .font(.subheadline)
-                        .foregroundStyle(statusColor(for: book.statusId))
+                // Reading Status Picker
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Reading Status")
+                        .font(.subheadline.bold())
+                        .padding(.horizontal)
+
+                    StatusPickerView(
+                        currentStatusId: book.statusId,
+                        userBookId: book.userBookId,
+                        bookId: book.id,
+                        onStatusChanged: { newStatusId in
+                            changeStatus(to: newStatusId)
+                        },
+                        onRemove: {
+                            removeFromLibrary()
+                        }
+                    )
+                    .padding(.horizontal)
                 }
 
                 // Metadata
@@ -80,6 +97,43 @@ struct BookDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
+    // MARK: - Actions
+
+    private func changeStatus(to statusId: Int) {
+        if let userBookId = book.userBookId {
+            // Update existing user_book
+            SyncManager.shared.enqueueUpdateUserBook(userBookId: userBookId, statusId: statusId)
+        } else {
+            // Insert new user_book
+            SyncManager.shared.enqueueInsertUserBook(bookId: book.id, statusId: statusId)
+        }
+
+        // Optimistic update
+        libraryManager.updateBookStatusOptimistically(bookId: book.id, statusId: statusId)
+        book = Book(
+            id: book.id, title: book.title, authorNames: book.authorNames,
+            coverURL: book.coverURL, slug: book.slug, pageCount: book.pageCount,
+            isbn13: book.isbn13, seriesID: book.seriesID, seriesName: book.seriesName,
+            seriesPosition: book.seriesPosition, statusId: statusId,
+            rating: book.rating, userBookId: book.userBookId
+        )
+    }
+
+    private func removeFromLibrary() {
+        guard let userBookId = book.userBookId else { return }
+        SyncManager.shared.enqueueDeleteUserBook(userBookId: userBookId)
+        libraryManager.removeBookOptimistically(id: book.id)
+        book = Book(
+            id: book.id, title: book.title, authorNames: book.authorNames,
+            coverURL: book.coverURL, slug: book.slug, pageCount: book.pageCount,
+            isbn13: book.isbn13, seriesID: book.seriesID, seriesName: book.seriesName,
+            seriesPosition: book.seriesPosition, statusId: nil,
+            rating: nil, userBookId: nil
+        )
+    }
+
+    // MARK: - Helpers
+
     private func metadataRow(label: String, value: String) -> some View {
         HStack {
             Text(label)
@@ -87,26 +141,6 @@ struct BookDetailView: View {
             Spacer()
             Text(value)
                 .fontWeight(.medium)
-        }
-    }
-
-    private func statusIcon(for statusId: Int?) -> String {
-        switch statusId {
-        case 1: return "bookmark"
-        case 2: return "book.fill"
-        case 3: return "checkmark.circle.fill"
-        case 5: return "xmark.circle"
-        default: return "questionmark.circle"
-        }
-    }
-
-    private func statusColor(for statusId: Int?) -> Color {
-        switch statusId {
-        case 1: return .blue
-        case 2: return .orange
-        case 3: return .green
-        case 5: return .red
-        default: return .secondary
         }
     }
 }
