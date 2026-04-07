@@ -85,6 +85,7 @@ struct ContentView: View {
             libraryManager.configure(service: hardcoverService, context: modelContext)
             SyncManager.shared.configure(service: hardcoverService, context: modelContext)
             GoalManager.shared.configure(service: hardcoverService)
+            ActivityManager.shared.configure(service: hardcoverService)
         }
         .task {
             // Eagerly load list memberships so scanner can add to lists

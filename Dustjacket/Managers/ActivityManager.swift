@@ -16,10 +16,40 @@ final class ActivityManager: ObservableObject {
         self.hardcoverService = service
     }
 
-    // Activity feed queries will be implemented when we validate the activity_feed schema
+    func fetchActivities() async {
+        guard let service = hardcoverService else { return }
+        isLoading = true
+
+        // Use getUserBooks as a proxy for activity — shows recent library changes
+        do {
+            let userBooks = try await service.getUserBooks(statusId: nil, limit: 20, offset: 0)
+            activities = userBooks.enumerated().map { index, ub in
+                let statusLabel: String
+                switch ub.status_id {
+                case 1: statusLabel = "wants to read"
+                case 2: statusLabel = "started reading"
+                case 3: statusLabel = "finished"
+                case 5: statusLabel = "did not finish"
+                default: statusLabel = "added"
+                }
+
+                return ActivityItem(
+                    id: ub.id,
+                    event: statusLabel,
+                    bookTitle: ub.book.title,
+                    bookCoverURL: ub.book.image?.url,
+                    username: nil,
+                    createdAt: ub.created_at ?? ""
+                )
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+
+        isLoading = false
+    }
 }
 
-// Lightweight activity model for display
 struct ActivityItem: Identifiable, Sendable {
     let id: Int
     let event: String
