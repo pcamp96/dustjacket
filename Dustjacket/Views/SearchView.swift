@@ -75,8 +75,8 @@ struct SearchView: View {
                     .font(.subheadline.bold())
                     .lineLimit(2)
 
-                if let authors = result.author_names, !authors.isEmpty {
-                    Text(authors.joined(separator: ", "))
+                if !result.displayAuthors.isEmpty {
+                    Text(result.displayAuthors.joined(separator: ", "))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -114,7 +114,8 @@ struct SearchView: View {
                 results = try await hardcoverService.searchBooks(query: trimmed, page: 1, perPage: 20)
                 hasSearched = true
             } catch {
-                // Silently fail on search errors (user is likely still typing)
+                hasSearched = true
+                results = []
             }
             isSearching = false
         }

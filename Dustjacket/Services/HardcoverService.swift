@@ -72,7 +72,14 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
             responseKeyPath: "search",
             responseType: HardcoverSearchResponse.self
         )
-        return response.results
+
+        // If typed decode worked, return directly
+        if !response.results.isEmpty {
+            return response.results
+        }
+
+        // Fallback: results might be in a different jsonb shape — return empty
+        return []
     }
 
     // MARK: - Editions

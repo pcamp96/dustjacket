@@ -11,15 +11,36 @@ struct LibraryView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Ownership segmented control
-            Picker("Ownership", selection: $selectedOwnership) {
+            // Ownership toggle
+            HStack(spacing: 0) {
                 ForEach(OwnershipType.allCases) { type in
-                    Text(type.rawValue).tag(type)
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            selectedOwnership = type
+                        }
+                    } label: {
+                        VStack(spacing: 4) {
+                            HStack(spacing: 4) {
+                                Image(systemName: type.icon)
+                                    .font(.caption)
+                                Text(type.rawValue)
+                                    .font(.subheadline.bold())
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+
+                            // Active indicator line
+                            Rectangle()
+                                .fill(selectedOwnership == type ? ownershipAccent : .clear)
+                                .frame(height: 2)
+                        }
+                        .foregroundStyle(selectedOwnership == type ? ownershipAccent : .secondary)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
-            .pickerStyle(.segmented)
             .padding(.horizontal)
-            .padding(.bottom, 8)
+            .padding(.bottom, 4)
 
             // Format filter pills
             FormatFilterBar(selectedFormat: $selectedFormat)
@@ -77,5 +98,9 @@ struct LibraryView: View {
 
     private var filteredBooks: [Book] {
         libraryManager.filteredBooks(ownership: selectedOwnership, format: selectedFormat)
+    }
+
+    private var ownershipAccent: Color {
+        selectedOwnership == .owned ? .green : .blue
     }
 }

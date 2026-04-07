@@ -148,8 +148,31 @@ struct HardcoverInsertListResponse: Codable, Sendable {
 
 // MARK: - Search
 
-struct HardcoverSearchResponse: Codable, Sendable {
+struct HardcoverSearchResponse: Sendable {
     let results: [HardcoverSearchResult]
+}
+
+extension HardcoverSearchResponse: Decodable {
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        // results is jsonb — might be an array of objects or might fail to decode as typed array
+        if let typedResults = try? container.decode([HardcoverSearchResult].self, forKey: .results) {
+            results = typedResults
+        } else {
+            results = []
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case results
+    }
+}
+
+extension HardcoverSearchResponse: Encodable {
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(results, forKey: .results)
+    }
 }
 
 struct HardcoverSearchResult: Codable, Sendable {
@@ -158,7 +181,16 @@ struct HardcoverSearchResult: Codable, Sendable {
     let slug: String?
     let image: String?
     let author_names: [String]?
-    let contributions: [HardcoverContribution]?
+    let cached_contributors: HardcoverCachedContributors?
+
+    /// Extract author names from whichever field is available
+    var displayAuthors: [String] {
+        if let names = author_names, !names.isEmpty { return names }
+        if let cached = cached_contributors?.author {
+            return cached.compactMap(\.name)
+        }
+        return []
+    }
 }
 
 // MARK: - Trending
