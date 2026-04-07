@@ -15,6 +15,21 @@ struct ScanResultView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
+                // Back button
+                HStack {
+                    Button {
+                        onDismiss()
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left")
+                            Text("Scan")
+                        }
+                        .font(.body)
+                    }
+                    Spacer()
+                }
+                .padding(.horizontal)
+
                 // Book cover
                 BookCoverView(
                     url: edition.coverURL,
