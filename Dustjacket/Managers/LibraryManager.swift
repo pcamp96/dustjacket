@@ -85,6 +85,8 @@ final class LibraryManager: ObservableObject {
         do {
             let lists = try await service.getUserLists()
             var membership: [Int: Set<String>] = [:]
+            let existingBookIds = Set(books.map(\.id))
+            var newBooks: [Book] = []
 
             for list in lists {
                 // Only process lists that are mapped to DJ lists
@@ -93,10 +95,22 @@ final class LibraryManager: ObservableObject {
 
                 for listBook in listBooks {
                     membership[listBook.book_id, default: []].insert(djKey)
+
+                    // If this book isn't in our library yet, add it from list data
+                    if !existingBookIds.contains(listBook.book_id),
+                       !newBooks.contains(where: { $0.id == listBook.book_id }),
+                       let hcBook = listBook.book {
+                        newBooks.append(Book(from: hcBook))
+                    }
                 }
             }
 
             bookListMembership = membership
+
+            // Add list-only books to the library
+            if !newBooks.isEmpty {
+                books.append(contentsOf: newBooks)
+            }
         } catch {
             // Non-fatal — filtering just won't work until next refresh
         }

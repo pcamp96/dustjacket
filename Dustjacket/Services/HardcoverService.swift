@@ -188,6 +188,18 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
                     books_count
                     list_books {
                         book_id
+                        book {
+                            id
+                            title
+                            slug
+                            pages
+                            image { url }
+                            cached_contributors
+                            book_series {
+                                series { id name }
+                                position
+                            }
+                        }
                     }
                 }
             }

@@ -134,6 +134,7 @@ struct HardcoverList: Codable, Sendable {
 
 struct HardcoverListBook: Codable, Sendable {
     let book_id: Int
+    let book: HardcoverBook?
 }
 
 struct HardcoverMeLists: Codable, Sendable {
