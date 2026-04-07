@@ -163,6 +163,16 @@ final class GraphQLClient: GraphQLClientProtocol, @unchecked Sendable {
                 throw GraphQLClientError.noData
             }
 
+            // Debug: print raw response for user books to check user_book_reads
+            if responseKeyPath == "me" {
+                if let dict = targetData as? [[String: Any]], let first = dict.first,
+                   let userBooks = first["user_books"] as? [[String: Any]], let firstBook = userBooks.first {
+                    let reads = firstBook["user_book_reads"]
+                    let title = (firstBook["book"] as? [String: Any])?["title"] ?? "?"
+                    print("[Dustjacket Debug] Book: \(title), user_book_reads: \(String(describing: reads))")
+                }
+            }
+
             let targetJSON = try JSONSerialization.data(withJSONObject: targetData)
             let decoded = try JSONDecoder().decode(T.self, from: targetJSON)
             return decoded
