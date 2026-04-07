@@ -25,12 +25,25 @@ struct ScannerView: View {
                     )
                     .ignoresSafeArea()
 
-                    scanOverlay
+                    VStack {
+                        Spacer()
+                        Text("Point at a barcode or printed ISBN")
+                            .font(.caption)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(.ultraThinMaterial)
+                            .clipShape(Capsule())
+                        Spacer().frame(height: 40)
+                    }
                 } else {
-                    cameraUnavailableView
+                    ContentUnavailableView(
+                        "Camera Not Available",
+                        systemImage: "camera.fill",
+                        description: Text("Barcode scanning requires camera access. Please enable it in Settings.")
+                    )
                 }
 
-            case .lookingUp, .processingOCR:
+            case .lookingUp:
                 VStack(spacing: 16) {
                     ProgressView()
                         .scaleEffect(1.5)
@@ -39,20 +52,10 @@ struct ScannerView: View {
                         .foregroundStyle(.secondary)
                 }
 
-            case .searchingByText:
-                VStack(spacing: 16) {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                    Text("Searching by cover text...")
-                        .font(.headline)
-                        .foregroundStyle(.secondary)
-                }
-
             case .found:
                 if let book = manager.foundBook {
                     ScrollView {
                         VStack(spacing: 0) {
-                            // Back button
                             HStack {
                                 Button {
                                     manager.reset()
@@ -72,124 +75,24 @@ struct ScannerView: View {
                     }
                 }
 
-            case .searchResults:
-                searchResultsView
-
             case .notFound:
-                notFoundView
-            }
-        }
-    }
-
-    // MARK: - Scan Overlay
-
-    private var scanOverlay: some View {
-        VStack {
-            Spacer()
-
-            Text("Point at a barcode, ISBN, or book cover")
-                .font(.caption)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(.ultraThinMaterial)
-                .clipShape(Capsule())
-
-            Spacer().frame(height: 40)
-        }
-    }
-
-    // MARK: - Search Results (from cover/title text)
-
-    private var searchResultsView: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Button {
-                    manager.reset()
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "chevron.left")
-                        Text("Scan")
+                VStack(spacing: 20) {
+                    Image(systemName: "book.closed")
+                        .font(.system(size: 48))
+                        .foregroundStyle(.secondary)
+                    Text("Book Not Found")
+                        .font(.title3.bold())
+                    Text("This ISBN wasn't found in Hardcover's database.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                    Button("Scan Again") {
+                        manager.reset()
                     }
+                    .buttonStyle(.borderedProminent)
                 }
-                Spacer()
             }
-            .padding()
-
-            Text("Is this your book?")
-                .font(.headline)
-                .padding(.bottom, 8)
-
-            List(manager.searchResults, id: \.id) { result in
-                Button {
-                    manager.selectSearchResult(result)
-                } label: {
-                    HStack(spacing: 12) {
-                        if let url = result.imageURL, let imageURL = URL(string: url) {
-                            AsyncImage(url: imageURL) { image in
-                                image.resizable().scaledToFill()
-                            } placeholder: {
-                                RoundedRectangle(cornerRadius: 4).fill(.quaternary)
-                            }
-                            .frame(width: 44, height: 66)
-                            .clipShape(RoundedRectangle(cornerRadius: 4))
-                        } else {
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(.quaternary)
-                                .frame(width: 44, height: 66)
-                                .overlay {
-                                    Image(systemName: "book.closed.fill")
-                                        .font(.caption)
-                                        .foregroundStyle(.tertiary)
-                                }
-                        }
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(result.title ?? "Unknown")
-                                .font(.subheadline.bold())
-                                .lineLimit(2)
-                            if !result.authorNames.isEmpty {
-                                Text(result.authorNames.joined(separator: ", "))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
-            }
-            .listStyle(.plain)
-        }
-    }
-
-    // MARK: - Fallback Views
-
-    private var cameraUnavailableView: some View {
-        ContentUnavailableView(
-            "Camera Not Available",
-            systemImage: "camera.fill",
-            description: Text("Barcode scanning requires camera access. Please enable it in Settings.")
-        )
-    }
-
-    private var notFoundView: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "book.closed")
-                .font(.system(size: 48))
-                .foregroundStyle(.secondary)
-
-            Text("Book Not Found")
-                .font(.title3.bold())
-
-            Text("This ISBN wasn't found in Hardcover's database.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
-
-            Button("Scan Again") {
-                manager.reset()
-            }
-            .buttonStyle(.borderedProminent)
         }
     }
 }

@@ -85,6 +85,10 @@ struct ContentView: View {
             libraryManager.configure(service: hardcoverService, context: modelContext)
             SyncManager.shared.configure(service: hardcoverService, context: modelContext)
         }
+        .task {
+            // Eagerly load list memberships so scanner can add to lists
+            await libraryManager.loadListMemberships()
+        }
         .sheet(isPresented: $showAvatarMenu) {
             AvatarMenuView(
                 user: currentUser,
