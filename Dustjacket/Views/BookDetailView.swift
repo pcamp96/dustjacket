@@ -6,6 +6,7 @@ struct BookDetailView: View {
     @State private var showProgressSheet = false
     @State private var showReviewEditor = false
     @State private var showJournalEditor = false
+    @State private var showEditionPicker = false
     @State private var reviewText: String = ""
     @State private var journalEntries: [ReadingJournal] = []
 
@@ -50,6 +51,26 @@ struct BookDetailView: View {
                     .padding(.vertical, 4)
                     .background(.quaternary)
                     .clipShape(Capsule())
+                }
+
+                // Edition selector
+                HStack {
+                    if let pages = book.editionPageCount {
+                        Label("\(pages) pages", systemImage: "doc.text")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else if let pages = book.pageCount {
+                        Label("\(pages) pages", systemImage: "doc.text")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+
+                    Button {
+                        showEditionPicker = true
+                    } label: {
+                        Label(book.editionId != nil ? "Change Edition" : "Select Edition", systemImage: "books.vertical")
+                            .font(.caption)
+                    }
                 }
 
                 // Star Rating (only when book is in library)
@@ -215,6 +236,19 @@ struct BookDetailView: View {
         }
         .navigationTitle(book.title)
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showEditionPicker) {
+            if let service = LibraryManager.shared.hardcoverService {
+                EditionPickerSheet(
+                    bookId: book.id,
+                    bookTitle: book.title,
+                    currentEditionId: book.editionId,
+                    hardcoverService: service,
+                    onSelect: { edition in
+                        selectEdition(edition)
+                    }
+                )
+            }
+        }
         .sheet(isPresented: $showJournalEditor) {
             JournalEditorSheet(bookTitle: book.title) { event, text in
                 let entry = ReadingJournal(
@@ -252,7 +286,7 @@ struct BookDetailView: View {
         .sheet(isPresented: $showProgressSheet) {
             ProgressUpdateSheet(
                 bookTitle: book.title,
-                totalPages: book.pageCount,
+                totalPages: book.effectivePageCount,
                 currentPage: book.currentProgress ?? 0,
                 onSave: { pages in
                     updateProgress(pages: pages)
@@ -289,6 +323,18 @@ struct BookDetailView: View {
         SyncManager.shared.enqueueUpdateUserBook(userBookId: userBookId, rating: rating)
         libraryManager.updateBookRatingOptimistically(bookId: book.id, rating: rating)
         book = book.with(rating: rating)
+    }
+
+    private func selectEdition(_ edition: Edition) {
+        book = book.with(editionId: edition.id, editionPageCount: edition.pageCount)
+        // Sync to Hardcover
+        if let userBookId = book.userBookId {
+            Task {
+                try? await LibraryManager.shared.hardcoverService?.updateUserBook(
+                    id: userBookId, statusId: nil, rating: nil, editionId: edition.id
+                )
+            }
+        }
     }
 
     private func updateProgress(pages: Int) {

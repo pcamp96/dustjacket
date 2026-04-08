@@ -17,6 +17,8 @@ struct Book: Identifiable, Codable, Hashable, Sendable {
     let currentProgress: Int?      // pages read
     let progressPercent: Double?   // 0-100 percentage
     let progressSeconds: Int?      // audio seconds listened
+    let editionId: Int?
+    let editionPageCount: Int?     // pages from user's specific edition
 
     var displayAuthor: String {
         authorNames.joined(separator: ", ")
@@ -33,12 +35,17 @@ struct Book: Identifiable, Codable, Hashable, Sendable {
         }
     }
 
+    /// The effective page count — edition-specific if available, otherwise generic
+    var effectivePageCount: Int? {
+        editionPageCount ?? pageCount
+    }
+
     /// Best available progress as a 0-1 fraction
     var progressFraction: Double? {
         if let pct = progressPercent, pct > 0 {
             return pct / 100.0
         }
-        if let pages = currentProgress, let total = pageCount, total > 0 {
+        if let pages = currentProgress, let total = effectivePageCount, total > 0 {
             return Double(pages) / Double(total)
         }
         return nil
@@ -55,7 +62,7 @@ struct Book: Identifiable, Codable, Hashable, Sendable {
             return "\(Int(pct))% done"
         }
         if let pages = currentProgress, pages > 0 {
-            if let total = pageCount {
+            if let total = effectivePageCount {
                 return "\(pages) of \(total) pages"
             }
             return "Page \(pages)"
@@ -75,7 +82,9 @@ struct Book: Identifiable, Codable, Hashable, Sendable {
         userBookId: Int?? = nil,
         currentProgress: Int?? = nil,
         progressPercent: Double?? = nil,
-        progressSeconds: Int?? = nil
+        progressSeconds: Int?? = nil,
+        editionId: Int?? = nil,
+        editionPageCount: Int?? = nil
     ) -> Book {
         Book(
             id: id, title: title, authorNames: authorNames,
@@ -87,7 +96,9 @@ struct Book: Identifiable, Codable, Hashable, Sendable {
             userBookId: userBookId ?? self.userBookId,
             currentProgress: currentProgress ?? self.currentProgress,
             progressPercent: progressPercent ?? self.progressPercent,
-            progressSeconds: progressSeconds ?? self.progressSeconds
+            progressSeconds: progressSeconds ?? self.progressSeconds,
+            editionId: editionId ?? self.editionId,
+            editionPageCount: editionPageCount ?? self.editionPageCount
         )
     }
 }
@@ -114,6 +125,8 @@ extension Book {
         self.currentProgress = latestRead?.progress_pages
         self.progressPercent = latestRead?.progress
         self.progressSeconds = latestRead?.progress_seconds
+        self.editionId = userBook.edition_id
+        self.editionPageCount = nil // Fetched separately when edition picker is used
     }
 
     init(from hcBook: HardcoverBook, statusId: Int? = nil, rating: Double? = nil, userBookId: Int? = nil) {
@@ -133,6 +146,8 @@ extension Book {
         self.currentProgress = nil
         self.progressPercent = nil
         self.progressSeconds = nil
+        self.editionId = nil
+        self.editionPageCount = nil
     }
 
     private static func extractAuthors(from book: HardcoverBook) -> [String] {
@@ -167,5 +182,7 @@ extension Book {
         self.currentProgress = nil
         self.progressPercent = nil
         self.progressSeconds = nil
+        self.editionId = cached.editionId
+        self.editionPageCount = nil
     }
 }

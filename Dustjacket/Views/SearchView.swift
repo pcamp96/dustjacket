@@ -51,7 +51,9 @@ struct SearchView: View {
                             userBookId: nil,
                             currentProgress: nil,
                             progressPercent: nil,
-                            progressSeconds: nil
+                            progressSeconds: nil,
+                            editionId: nil,
+                            editionPageCount: nil
                         ))
                     } label: {
                         editionResultRow(edition)
@@ -77,7 +79,9 @@ struct SearchView: View {
                             userBookId: nil,
                             currentProgress: nil,
                             progressPercent: nil,
-                            progressSeconds: nil
+                            progressSeconds: nil,
+                            editionId: nil,
+                            editionPageCount: nil
                         ))
                     } label: {
                         searchResultRow(result)

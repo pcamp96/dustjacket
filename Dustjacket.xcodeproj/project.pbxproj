@@ -65,6 +65,7 @@
 		F7D287C03F172B73F84AC93A /* BookDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF6D90E21FB2EBA9EC69BC72 /* BookDetailView.swift */; };
 		F8898E71B6B267CD91A25956 /* AllListsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1021FBD5ED00FCA0CC4FDF10 /* AllListsView.swift */; };
 		F9A38B07EC147B04D9257189 /* GlassModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C32BD6EFB3F84BBF4A2A32A /* GlassModifiers.swift */; };
+		FCD1FA4EFD17017BB41B2091 /* EditionPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3947421AC769F2A6AC8F493 /* EditionPickerSheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -110,7 +111,7 @@
 		A777A9E21727EFFB408069AC /* ListMatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListMatchView.swift; sourceTree = "<group>"; };
 		A9EA888D07C91399C4A9C230 /* StarRatingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StarRatingView.swift; sourceTree = "<group>"; };
 		B295402AD00E27A6178BFACC /* OwnershipType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OwnershipType.swift; sourceTree = "<group>"; };
-		B3FBD3FA2AF813964286968E /* Dustjacket.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Dustjacket.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B3FBD3FA2AF813964286968E /* Dustjacket.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Dustjacket.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B4618EE33B89C0157F6649B8 /* CachedEdition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedEdition.swift; sourceTree = "<group>"; };
 		B5640D2C9239DC9C9196E753 /* PendingMutation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingMutation.swift; sourceTree = "<group>"; };
 		BF32988E646F9B4690E30BE7 /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
@@ -125,6 +126,7 @@
 		DD64ADE2358CC6B0EEF1F139 /* DustjacketTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DustjacketTheme.swift; sourceTree = "<group>"; };
 		E0805155E0F9150E00541B4E /* ExploreView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreView.swift; sourceTree = "<group>"; };
 		E9C41D0AE653AF449C2FBCF8 /* BookCoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookCoverView.swift; sourceTree = "<group>"; };
+		F3947421AC769F2A6AC8F493 /* EditionPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditionPickerSheet.swift; sourceTree = "<group>"; };
 		FBE855A55029FEF120771791 /* DJList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJList.swift; sourceTree = "<group>"; };
 		FC78773770A03AE6684C9B5A /* ScanResultView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanResultView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -154,6 +156,7 @@
 		3CA73253EB9089424C2ADE21 /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				F3947421AC769F2A6AC8F493 /* EditionPickerSheet.swift */,
 				CC22CD83CA57558F664E6F5E /* FormatCollectionView.swift */,
 				609FFC95BF0276304323C01C /* JournalEditorSheet.swift */,
 				95A7DB67611A66A6345478CB /* ProgressUpdateSheet.swift */,
@@ -357,6 +360,7 @@
 				E91CB7734F5171D47775AB31 /* DustjacketApp.swift in Sources */,
 				90FC88B00679ADE593C2ECCC /* DustjacketTheme.swift in Sources */,
 				4DBF337515953C4173C48D44 /* Edition.swift in Sources */,
+				FCD1FA4EFD17017BB41B2091 /* EditionPickerSheet.swift in Sources */,
 				BEB08BFBEC517AF7E6008049 /* ExploreView.swift in Sources */,
 				600455FBBA88D56EC49BC9B6 /* FormatCollectionView.swift in Sources */,
 				8D00C17F1AFD654EC22A246D /* FormatFilterBar.swift in Sources */,
@@ -412,7 +416,6 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 7YRDJ7AV9J;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Dustjacket uses your camera to scan book barcodes";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -503,7 +506,6 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 7YRDJ7AV9J;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Dustjacket uses your camera to scan book barcodes";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

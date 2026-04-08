@@ -16,6 +16,7 @@ final class CachedBook {
     var hardcoverStatusId: Int?
     var rating: Double?
     var userBookId: Int?
+    var editionId: Int?
     var lastSynced: Date
 
     init(
@@ -32,6 +33,7 @@ final class CachedBook {
         hardcoverStatusId: Int? = nil,
         rating: Double? = nil,
         userBookId: Int? = nil,
+        editionId: Int? = nil,
         lastSynced: Date = .now
     ) {
         self.hardcoverID = hardcoverID
@@ -47,6 +49,7 @@ final class CachedBook {
         self.hardcoverStatusId = hardcoverStatusId
         self.rating = rating
         self.userBookId = userBookId
+        self.editionId = editionId
         self.lastSynced = lastSynced
     }
 }

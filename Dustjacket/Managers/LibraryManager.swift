@@ -269,7 +269,8 @@ final class LibraryManager: ObservableObject {
                 seriesPosition: book.seriesPosition,
                 hardcoverStatusId: book.statusId,
                 rating: book.rating,
-                userBookId: book.userBookId
+                userBookId: book.userBookId,
+                editionId: book.editionId
             )
             context.insert(cached)
         }

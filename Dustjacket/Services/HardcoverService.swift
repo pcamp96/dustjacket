@@ -14,7 +14,7 @@ protocol HardcoverServiceProtocol: Sendable {
     func deleteList(id: Int) async throws
     func getTrendingBooks(from: String, to: String, limit: Int, offset: Int) async throws -> [HardcoverTrendingBook]
     func insertUserBook(bookId: Int, statusId: Int) async throws -> HardcoverUserBook
-    func updateUserBook(id: Int, statusId: Int?, rating: Double?) async throws -> HardcoverUserBook
+    func updateUserBook(id: Int, statusId: Int?, rating: Double?, editionId: Int?) async throws -> HardcoverUserBook
     func deleteUserBook(id: Int) async throws
     func getUserGoals() async throws -> [HardcoverGoal]
     func insertGoal(metric: String, goal: Int, startDate: String, endDate: String, description: String) async throws -> Int
@@ -22,6 +22,7 @@ protocol HardcoverServiceProtocol: Sendable {
     func insertUserBookRead(userBookId: Int, progressPages: Int) async throws -> Int
     func updateUserBookReview(id: Int, reviewText: String, hasSpoilers: Bool) async throws
     func insertReadingJournal(bookId: Int, event: String, entry: String?, privacySettingId: Int) async throws -> Int
+    func getEditionsByBookId(_ bookId: Int) async throws -> [HardcoverEdition]
 }
 
 // MARK: - Implementation
@@ -148,6 +149,7 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
                     id
                     status_id
                     rating
+                    edition_id
                     created_at
                     user_book_reads(order_by: { created_at: desc }, limit: 1) {
                         id
@@ -379,11 +381,12 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
         return userBook
     }
 
-    func updateUserBook(id: Int, statusId: Int? = nil, rating: Double? = nil) async throws -> HardcoverUserBook {
+    func updateUserBook(id: Int, statusId: Int? = nil, rating: Double? = nil, editionId: Int? = nil) async throws -> HardcoverUserBook {
         // Build object fields inline — Hardcover custom mutations accept inlined scalars
         var fields: [String] = []
         if let statusId { fields.append("status_id: \(statusId)") }
         if let rating { fields.append("rating: \(rating)") }
+        if let editionId { fields.append("edition_id: \(editionId)") }
         guard !fields.isEmpty else { throw GraphQLClientError.noData }
         let objectStr = fields.joined(separator: ", ")
 
@@ -600,5 +603,45 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
             throw GraphQLClientError.graphQLErrors(errors)
         }
         return response.id ?? 0
+    }
+
+    // MARK: - Editions
+
+    func getEditionsByBookId(_ bookId: Int) async throws -> [HardcoverEdition] {
+        let query = """
+        query EditionsByBook($bookId: Int!) {
+            editions(where: { book_id: { _eq: $bookId } }, order_by: { users_count: desc_nulls_last }) {
+                id
+                title
+                isbn_13
+                isbn_10
+                edition_format
+                pages
+                release_date
+                image {
+                    url
+                }
+                book {
+                    id
+                    title
+                    slug
+                    image { url }
+                    contributions {
+                        author { id name }
+                    }
+                    book_series {
+                        series { id name }
+                        position
+                    }
+                }
+            }
+        }
+        """
+        return try await client.execute(
+            query: query,
+            variables: ["bookId": bookId],
+            responseKeyPath: "editions",
+            responseType: [HardcoverEdition].self
+        )
     }
 }

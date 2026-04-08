@@ -66,7 +66,9 @@ final class ScannerManager: ObservableObject {
                     userBookId: nil,
                     currentProgress: nil,
                     progressPercent: nil,
-                    progressSeconds: nil
+                    progressSeconds: nil,
+                    editionId: edition.id != 0 ? edition.id : nil,
+                    editionPageCount: edition.pageCount
                 )
                 foundBook = book
                 scanState = .found
