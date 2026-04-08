@@ -2,9 +2,9 @@ import SwiftUI
 
 struct ExploreView: View {
     let hardcoverService: HardcoverServiceProtocol
-    @ObservedObject var libraryManager: LibraryManager
 
     @State private var trendingBooks: [Book] = []
+    @State private var featuredLists: [HardcoverList] = []
     @State private var isLoading = false
 
     var body: some View {
@@ -26,36 +26,42 @@ struct ExploreView: View {
                         .foregroundStyle(.secondary)
                         .padding(.horizontal)
                 } else {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
-                            ForEach(trendingBooks) { book in
-                                NavigationLink(value: book) {
-                                    BookCardView(book: book)
-                                        .frame(width: 120)
-                                }
-                                .buttonStyle(.plain)
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 100, maximum: 140), spacing: 12)], spacing: 16) {
+                        ForEach(trendingBooks) { book in
+                            NavigationLink(value: book) {
+                                BookCardView(book: book)
                             }
+                            .buttonStyle(.plain)
                         }
-                        .padding(.horizontal)
                     }
+                    .padding(.horizontal)
                 }
 
-                // Friends reading (from library data)
-                if !friendsReadingSection.isEmpty {
-                    sectionHeader("Recently in Your Library", icon: "clock.fill")
+                // Featured Lists
+                if !featuredLists.isEmpty {
+                    sectionHeader("Popular Lists", icon: "list.star")
 
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
-                            ForEach(friendsReadingSection) { book in
-                                NavigationLink(value: book) {
-                                    BookCardView(book: book)
-                                        .frame(width: 120)
+                    VStack(spacing: 8) {
+                        ForEach(featuredLists, id: \.id) { list in
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(list.name)
+                                    .font(.subheadline.bold())
+                                HStack(spacing: 8) {
+                                    if let count = list.books_count {
+                                        Label("\(count) books", systemImage: "book.closed")
+                                    }
+                                    if let desc = list.description, !desc.isEmpty {
+                                        Text(desc)
+                                            .lineLimit(1)
+                                    }
                                 }
-                                .buttonStyle(.plain)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                             }
+                            .padding(.vertical, 6)
                         }
-                        .padding(.horizontal)
                     }
+                    .padding(.horizontal)
                 }
             }
             .padding(.vertical)
@@ -64,10 +70,10 @@ struct ExploreView: View {
             BookDetailView(book: book)
         }
         .task {
-            await loadTrending()
+            await loadContent()
         }
         .refreshable {
-            await loadTrending()
+            await loadContent()
         }
     }
 
@@ -77,13 +83,18 @@ struct ExploreView: View {
             .padding(.horizontal)
     }
 
-    private var friendsReadingSection: [Book] {
-        libraryManager.recentlyAdded(limit: 10)
+    private func loadContent() async {
+        isLoading = true
+
+        // Load trending and featured lists in parallel
+        async let trendingTask: () = loadTrending()
+        async let listsTask: () = loadFeaturedLists()
+        _ = await (trendingTask, listsTask)
+
+        isLoading = false
     }
 
     private func loadTrending() async {
-        isLoading = true
-
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         let to = formatter.string(from: Date())
@@ -93,9 +104,21 @@ struct ExploreView: View {
             let trending = try await hardcoverService.getTrendingBooks(from: from, to: to, limit: 20, offset: 0)
             trendingBooks = trending.map { Book(from: $0.book) }
         } catch {
-            // Silently fail — explore is non-critical
+            // Non-critical
         }
+    }
 
-        isLoading = false
+    private func loadFeaturedLists() async {
+        do {
+            let allLists = try await hardcoverService.getUserLists()
+            // Show lists with the most books as "popular"
+            featuredLists = allLists
+                .filter { ($0.books_count ?? 0) > 0 }
+                .sorted { ($0.books_count ?? 0) > ($1.books_count ?? 0) }
+                .prefix(5)
+                .map { $0 }
+        } catch {
+            // Non-critical
+        }
     }
 }

@@ -45,6 +45,8 @@ final class MutationQueue: ObservableObject {
         isProcessing = true
         defer { isProcessing = false }
 
+        var didProcessAny = false
+
         while true {
             let pending = fetchPending(context: context)
             guard let mutation = pending.first else { break }
@@ -56,19 +58,30 @@ final class MutationQueue: ObservableObject {
                 try await executeMutation(mutation)
                 context.delete(mutation)
                 try? context.save()
+                didProcessAny = true
                 try await Task.sleep(for: minimumDelay)
             } catch {
-                print("[MutationQueue] Error executing \(mutation.mutationType): \(error.localizedDescription)")
+                print("[MutationQueue] Error: \(mutation.mutationType) — \(error.localizedDescription)")
                 mutation.retryCount += 1
                 mutation.lastError = error.localizedDescription
-                mutation.status = mutation.retryCount >= 5 ? "failed" : "pending"
-                try? context.save()
 
-                if mutation.retryCount >= 5 {
-                    continue
+                if mutation.retryCount >= 3 {
+                    // Delete stuck mutations instead of leaving them forever
+                    context.delete(mutation)
+                    try? context.save()
+                } else {
+                    mutation.status = "pending"
+                    try? context.save()
+                    // Skip this one and continue with the rest
                 }
-                break
+                try? await Task.sleep(for: minimumDelay)
+                continue
             }
+        }
+
+        // After draining, refresh library to sync optimistic state with server
+        if didProcessAny {
+            await LibraryManager.shared.fetchLibrary(refresh: true)
         }
     }
 

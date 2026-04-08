@@ -87,9 +87,12 @@ struct LibraryView: View {
             BookDetailView(book: book)
         }
         .refreshable {
+            // Drain pending mutations first, then refresh from server
+            await MutationQueue.shared.processQueue()
             await libraryManager.fetchLibrary(refresh: true)
         }
         .task {
+            // Only fetch if we don't have data yet — ContentView.task handles initial load
             if libraryManager.books.isEmpty {
                 await libraryManager.fetchLibrary()
             }

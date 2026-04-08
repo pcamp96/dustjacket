@@ -380,15 +380,17 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
     }
 
     func updateUserBook(id: Int, statusId: Int? = nil, rating: Double? = nil) async throws -> HardcoverUserBook {
-        // Build the object fields dynamically
-        var objectFields: [String] = []
-        if let statusId { objectFields.append("status_id: \(statusId)") }
-        if let rating { objectFields.append("rating: \(rating)") }
-        let objectStr = objectFields.joined(separator: ", ")
+        // Build object fields inline — Hardcover custom mutations accept inlined scalars
+        var fields: [String] = []
+        if let statusId { fields.append("status_id: \(statusId)") }
+        if let rating { fields.append("rating: \(rating)") }
+        guard !fields.isEmpty else { throw GraphQLClientError.noData }
+        let objectStr = fields.joined(separator: ", ")
 
+        // Fully inline the query — no $variables for the object fields
         let query = """
-        mutation UpdateUserBook($id: Int!) {
-            update_user_book(id: $id, object: { \(objectStr) }) {
+        {
+            update_user_book(id: \(id), object: { \(objectStr) }) {
                 id
                 error
                 user_book {
@@ -414,7 +416,7 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
         """
         let response: HardcoverUserBookMutationResponse = try await client.execute(
             query: query,
-            variables: ["id": id],
+            variables: nil,
             responseKeyPath: "update_user_book",
             responseType: HardcoverUserBookMutationResponse.self
         )
@@ -474,10 +476,11 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
 
     func insertGoal(metric: String, goal: Int, startDate: String, endDate: String, description: String) async throws -> Int {
         let escapedDesc = description.replacingOccurrences(of: "\"", with: "\\\"")
+        let escapedMetric = metric.replacingOccurrences(of: "\"", with: "\\\"")
         let query = """
-        {
+        mutation {
             insert_goal(object: {
-                metric: "\(metric)",
+                metric: "\(escapedMetric)",
                 goal: \(goal),
                 start_date: "\(startDate)",
                 end_date: "\(endDate)",
@@ -539,17 +542,16 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
     // MARK: - Reviews
 
     func updateUserBookReview(id: Int, reviewText: String, hasSpoilers: Bool) async throws {
-        // Convert plain text to Slate.js JSON format
         let escapedText = reviewText
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
             .replacingOccurrences(of: "\n", with: "\\n")
 
-        let slateJson = "[{\"type\":\"paragraph\",\"children\":[{\"text\":\"\(escapedText)\"}]}]"
+        let slateJson = "[{\\\"type\\\":\\\"paragraph\\\",\\\"children\\\":[{\\\"text\\\":\\\"\(escapedText)\\\"}]}]"
 
         let query = """
-        mutation UpdateReview($id: Int!) {
-            update_user_book(id: $id, object: {
+        {
+            update_user_book(id: \(id), object: {
                 review_slate: "\(slateJson)",
                 review_has_spoilers: \(hasSpoilers)
             }) {
@@ -560,7 +562,7 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
         """
         let _: HardcoverUserBookMutationResponse = try await client.execute(
             query: query,
-            variables: ["id": id],
+            variables: nil,
             responseKeyPath: "update_user_book",
             responseType: HardcoverUserBookMutationResponse.self
         )
@@ -576,7 +578,7 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
         }
 
         let query = """
-        {
+        mutation {
             insert_reading_journal(object: {
                 book_id: \(bookId),
                 event: "\(event)",

@@ -81,15 +81,15 @@ struct ContentView: View {
                 .tag(tab)
             }
         }
-        .onAppear {
+        .task {
+            // Configure all managers first, then fetch data
             libraryManager.configure(service: hardcoverService, context: modelContext)
             SyncManager.shared.configure(service: hardcoverService, context: modelContext)
             GoalManager.shared.configure(service: hardcoverService)
             ActivityManager.shared.configure(service: hardcoverService)
-        }
-        .task {
-            // Eagerly load list memberships so scanner can add to lists
-            await libraryManager.loadListMemberships()
+
+            // Fetch library + list memberships in one flow
+            await libraryManager.fetchLibrary()
         }
         .sheet(isPresented: $showAvatarMenu) {
             AvatarMenuView(
@@ -116,7 +116,7 @@ struct ContentView: View {
             ScannerView(hardcoverService: hardcoverService)
                 .navigationTitle("Scanner")
         case .explore:
-            ExploreView(hardcoverService: hardcoverService, libraryManager: libraryManager)
+            ExploreView(hardcoverService: hardcoverService)
                 .navigationTitle("Explore")
         case .search:
             SearchView(hardcoverService: hardcoverService)
