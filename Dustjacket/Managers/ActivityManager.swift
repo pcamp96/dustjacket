@@ -16,6 +16,16 @@ final class ActivityManager: ObservableObject {
         self.hardcoverService = service
     }
 
+    func resetState(clearConfiguration: Bool = false) {
+        activities = []
+        isLoading = false
+        errorMessage = nil
+
+        if clearConfiguration {
+            hardcoverService = nil
+        }
+    }
+
     func fetchActivities() async {
         guard let service = hardcoverService else { return }
         isLoading = true

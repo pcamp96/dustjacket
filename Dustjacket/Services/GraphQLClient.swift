@@ -164,8 +164,18 @@ final class GraphQLClient: GraphQLClientProtocol, @unchecked Sendable {
             }
 
             let targetJSON = try JSONSerialization.data(withJSONObject: targetData)
-            let decoded = try JSONDecoder().decode(T.self, from: targetJSON)
-            return decoded
+            do {
+                let decoded = try JSONDecoder().decode(T.self, from: targetJSON)
+                return decoded
+            } catch {
+                // DEBUG: Print decoding errors with context
+                print("[DJ-DEBUG] Decoding FAILED for keyPath '\(responseKeyPath)' type \(T.self)")
+                print("[DJ-DEBUG] Error: \(error)")
+                if let rawString = String(data: targetJSON, encoding: .utf8)?.prefix(2000) {
+                    print("[DJ-DEBUG] Raw JSON: \(rawString)")
+                }
+                throw GraphQLClientError.decodingFailed(error)
+            }
         } catch let error as GraphQLClientError {
             throw error
         } catch {

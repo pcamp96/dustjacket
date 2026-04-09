@@ -16,6 +16,16 @@ final class GoalManager: ObservableObject {
         self.hardcoverService = service
     }
 
+    func resetState(clearConfiguration: Bool = false) {
+        goals = []
+        isLoading = false
+        errorMessage = nil
+
+        if clearConfiguration {
+            hardcoverService = nil
+        }
+    }
+
     var activeGoals: [Goal] {
         goals.filter(\.isActive)
     }

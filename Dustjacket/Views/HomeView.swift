@@ -80,7 +80,15 @@ struct HomeView: View {
                         .lineLimit(1)
                 }
 
-                if let pages = book.pageCount {
+                if let label = book.progressLabel {
+                    if let fraction = book.progressFraction {
+                        ProgressView(value: fraction)
+                            .tint(.orange)
+                    }
+                    Text(label)
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                } else if let pages = book.effectivePageCount {
                     Text("\(pages) pages")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)

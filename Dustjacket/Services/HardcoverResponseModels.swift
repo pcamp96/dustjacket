@@ -115,6 +115,7 @@ struct HardcoverUserBook: Codable, Sendable {
     let rating: Double?
     let created_at: String?
     let edition_id: Int?
+    let edition: HardcoverEdition?
     let user_book_reads: [HardcoverUserBookRead]?
     let book: HardcoverBook
 }
@@ -144,6 +145,7 @@ struct HardcoverList: Codable, Sendable {
 }
 
 struct HardcoverListBook: Codable, Sendable {
+    let id: Int?
     let book_id: Int
     let book: HardcoverBook?
 }

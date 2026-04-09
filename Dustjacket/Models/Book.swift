@@ -19,6 +19,14 @@ struct Book: Identifiable, Codable, Hashable, Sendable {
     let progressSeconds: Int?      // audio seconds listened
     let editionId: Int?
     let editionPageCount: Int?     // pages from user's specific edition
+    let editionFormat: String?     // e.g. "Unabridged Audiobook", "Hardback", etc.
+    let lastReadAt: String?        // ISO date of latest reading progress update
+
+    /// Whether the selected edition is an audiobook
+    var isAudiobook: Bool {
+        guard let fmt = editionFormat?.lowercased() else { return false }
+        return fmt.contains("audio") || fmt.contains("audible")
+    }
 
     var displayAuthor: String {
         authorNames.joined(separator: ", ")
@@ -77,6 +85,7 @@ struct Book: Identifiable, Codable, Hashable, Sendable {
 
     /// Create a copy with modified fields
     func with(
+        coverURL: String?? = nil,
         statusId: Int?? = nil,
         rating: Double?? = nil,
         userBookId: Int?? = nil,
@@ -84,11 +93,12 @@ struct Book: Identifiable, Codable, Hashable, Sendable {
         progressPercent: Double?? = nil,
         progressSeconds: Int?? = nil,
         editionId: Int?? = nil,
-        editionPageCount: Int?? = nil
+        editionPageCount: Int?? = nil,
+        editionFormat: String?? = nil
     ) -> Book {
         Book(
             id: id, title: title, authorNames: authorNames,
-            coverURL: coverURL, slug: slug, pageCount: pageCount,
+            coverURL: coverURL ?? self.coverURL, slug: slug, pageCount: pageCount,
             isbn13: isbn13, seriesID: seriesID, seriesName: seriesName,
             seriesPosition: seriesPosition,
             statusId: statusId ?? self.statusId,
@@ -98,7 +108,9 @@ struct Book: Identifiable, Codable, Hashable, Sendable {
             progressPercent: progressPercent ?? self.progressPercent,
             progressSeconds: progressSeconds ?? self.progressSeconds,
             editionId: editionId ?? self.editionId,
-            editionPageCount: editionPageCount ?? self.editionPageCount
+            editionPageCount: editionPageCount ?? self.editionPageCount,
+            editionFormat: editionFormat ?? self.editionFormat,
+        lastReadAt: self.lastReadAt
         )
     }
 }
@@ -111,7 +123,7 @@ extension Book {
         self.id = hcBook.id
         self.title = hcBook.title
         self.authorNames = Self.extractAuthors(from: hcBook)
-        self.coverURL = hcBook.image?.url
+        self.coverURL = userBook.edition?.image?.url ?? hcBook.image?.url
         self.slug = hcBook.slug
         self.pageCount = hcBook.pages
         self.isbn13 = nil
@@ -126,7 +138,22 @@ extension Book {
         self.progressPercent = latestRead?.progress
         self.progressSeconds = latestRead?.progress_seconds
         self.editionId = userBook.edition_id
-        self.editionPageCount = nil // Fetched separately when edition picker is used
+        self.editionPageCount = userBook.edition?.pages
+        self.editionFormat = userBook.edition?.edition_format
+        self.lastReadAt = latestRead?.started_at
+
+        // DEBUG: Remove after verifying sync works
+        if userBook.status_id == 2 {
+            print("[DJ-DEBUG] Currently Reading: \"\(hcBook.title)\"")
+            print("  edition_id: \(String(describing: userBook.edition_id))")
+            print("  edition object: \(String(describing: userBook.edition))")
+            print("  edition pages: \(String(describing: userBook.edition?.pages))")
+            print("  editionPageCount set to: \(String(describing: self.editionPageCount))")
+            print("  user_book_reads: \(String(describing: userBook.user_book_reads))")
+            print("  progress_pages: \(String(describing: latestRead?.progress_pages))")
+            print("  progress_percent: \(String(describing: latestRead?.progress))")
+            print("  progress_seconds: \(String(describing: latestRead?.progress_seconds))")
+        }
     }
 
     init(from hcBook: HardcoverBook, statusId: Int? = nil, rating: Double? = nil, userBookId: Int? = nil) {
@@ -148,6 +175,8 @@ extension Book {
         self.progressSeconds = nil
         self.editionId = nil
         self.editionPageCount = nil
+        self.editionFormat = nil
+        self.lastReadAt = nil
     }
 
     private static func extractAuthors(from book: HardcoverBook) -> [String] {
@@ -179,10 +208,12 @@ extension Book {
         self.statusId = cached.hardcoverStatusId
         self.rating = cached.rating
         self.userBookId = cached.userBookId
-        self.currentProgress = nil
-        self.progressPercent = nil
-        self.progressSeconds = nil
+        self.currentProgress = cached.currentProgress
+        self.progressPercent = cached.progressPercent
+        self.progressSeconds = cached.progressSeconds
         self.editionId = cached.editionId
-        self.editionPageCount = nil
+        self.editionPageCount = cached.editionPageCount
+        self.editionFormat = cached.editionFormat
+        self.lastReadAt = nil
     }
 }

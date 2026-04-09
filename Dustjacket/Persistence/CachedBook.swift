@@ -17,6 +17,11 @@ final class CachedBook {
     var rating: Double?
     var userBookId: Int?
     var editionId: Int?
+    var currentProgress: Int?
+    var progressPercent: Double?
+    var progressSeconds: Int?
+    var editionPageCount: Int?
+    var editionFormat: String?
     var lastSynced: Date
 
     init(
@@ -34,6 +39,11 @@ final class CachedBook {
         rating: Double? = nil,
         userBookId: Int? = nil,
         editionId: Int? = nil,
+        currentProgress: Int? = nil,
+        progressPercent: Double? = nil,
+        progressSeconds: Int? = nil,
+        editionPageCount: Int? = nil,
+        editionFormat: String? = nil,
         lastSynced: Date = .now
     ) {
         self.hardcoverID = hardcoverID
@@ -50,6 +60,11 @@ final class CachedBook {
         self.rating = rating
         self.userBookId = userBookId
         self.editionId = editionId
+        self.currentProgress = currentProgress
+        self.progressPercent = progressPercent
+        self.progressSeconds = progressSeconds
+        self.editionPageCount = editionPageCount
+        self.editionFormat = editionFormat
         self.lastSynced = lastSynced
     }
 }

@@ -16,6 +16,16 @@ final class ProfileManager: ObservableObject {
         self.hardcoverService = service
     }
 
+    func resetState(clearConfiguration: Bool = false) {
+        profile = nil
+        isLoading = false
+        errorMessage = nil
+
+        if clearConfiguration {
+            hardcoverService = nil
+        }
+    }
+
     func loadProfile() async {
         guard let service = hardcoverService else { return }
         guard !isLoading else { return }

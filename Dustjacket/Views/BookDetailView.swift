@@ -55,14 +55,16 @@ struct BookDetailView: View {
 
                 // Edition selector
                 HStack {
-                    if let pages = book.editionPageCount {
+                    if book.isAudiobook {
+                        if let fmt = book.editionFormat {
+                            Label(fmt, systemImage: "headphones")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    } else if let pages = book.effectivePageCount {
                         Label("\(pages) pages", systemImage: "doc.text")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                    } else if let pages = book.pageCount {
-                        Label("\(pages) pages", systemImage: "doc.text")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
                     }
 
                     Button {
@@ -139,7 +141,15 @@ struct BookDetailView: View {
 
                 // Metadata
                 VStack(spacing: 12) {
-                    if let pages = book.pageCount {
+                    if book.isAudiobook {
+                        if let secs = book.progressSeconds, secs > 0 {
+                            let h = secs / 3600
+                            let m = (secs % 3600) / 60
+                            metadataRow(label: "Length", value: "\(h)h \(m)m")
+                        }
+                    } else if let pages = book.effectivePageCount {
+                        metadataRow(label: "Pages", value: "\(pages)")
+                    } else if let pages = book.pageCount {
                         metadataRow(label: "Pages", value: "\(pages)")
                     }
                 }
@@ -260,11 +270,12 @@ struct BookDetailView: View {
                     createdAt: nil
                 )
                 journalEntries.insert(entry, at: 0)
-                Task {
-                    try? await LibraryManager.shared.hardcoverService?.insertReadingJournal(
-                        bookId: book.id, event: event, entry: text.isEmpty ? nil : text, privacySettingId: 1
-                    )
-                }
+                SyncManager.shared.enqueueInsertReadingJournal(
+                    bookId: book.id,
+                    event: event,
+                    entry: text.isEmpty ? nil : text,
+                    privacySettingId: 1
+                )
             }
         }
         .sheet(isPresented: $showReviewEditor) {
@@ -274,11 +285,11 @@ struct BookDetailView: View {
                 onSave: { text, hasSpoilers in
                     reviewText = text
                     if let userBookId = book.userBookId {
-                        Task {
-                            try? await LibraryManager.shared.hardcoverService?.updateUserBookReview(
-                                id: userBookId, reviewText: text, hasSpoilers: hasSpoilers
-                            )
-                        }
+                        SyncManager.shared.enqueueUpdateUserBookReview(
+                            userBookId: userBookId,
+                            reviewText: text,
+                            hasSpoilers: hasSpoilers
+                        )
                     }
                 }
             )
@@ -287,9 +298,12 @@ struct BookDetailView: View {
             ProgressUpdateSheet(
                 bookTitle: book.title,
                 totalPages: book.effectivePageCount,
+                isAudiobook: book.isAudiobook,
                 currentPage: book.currentProgress ?? 0,
-                onSave: { pages in
-                    updateProgress(pages: pages)
+                currentPercent: book.progressPercent ?? 0,
+                currentSeconds: book.progressSeconds ?? 0,
+                onSave: { update in
+                    updateProgress(update)
                 },
                 onMarkFinished: {
                     changeStatus(to: 3) // Mark as Read
@@ -315,7 +329,11 @@ struct BookDetailView: View {
         guard let userBookId = book.userBookId else { return }
         SyncManager.shared.enqueueDeleteUserBook(userBookId: userBookId)
         libraryManager.removeBookOptimistically(id: book.id)
-        book = book.with(statusId: nil, rating: nil, userBookId: nil)
+        book = book.with(
+            statusId: .some(nil),
+            rating: .some(nil),
+            userBookId: .some(nil)
+        )
     }
 
     private func updateRating(_ rating: Double) {
@@ -326,25 +344,57 @@ struct BookDetailView: View {
     }
 
     private func selectEdition(_ edition: Edition) {
-        book = book.with(editionId: edition.id, editionPageCount: edition.pageCount)
-        // Sync to Hardcover
+        book = book.with(coverURL: edition.coverURL, editionId: edition.id, editionPageCount: edition.pageCount)
         if let userBookId = book.userBookId {
-            Task {
-                try? await LibraryManager.shared.hardcoverService?.updateUserBook(
-                    id: userBookId, statusId: nil, rating: nil, editionId: edition.id
-                )
-            }
+            SyncManager.shared.enqueueUpdateUserBook(userBookId: userBookId, editionId: edition.id)
         }
+        libraryManager.updateBookEditionOptimistically(bookId: book.id, coverURL: edition.coverURL, editionId: edition.id, editionPageCount: edition.pageCount)
     }
 
-    private func updateProgress(pages: Int) {
-        book = book.with(currentProgress: pages)
-        if let userBookId = book.userBookId {
-            Task {
-                try? await LibraryManager.shared.hardcoverService?.insertUserBookRead(
-                    userBookId: userBookId, progressPages: pages
-                )
-            }
+    private func updateProgress(_ update: ProgressUpdate) {
+        // Update local state + library immediately
+        switch update {
+        case .pages(let pages):
+            book = book.with(
+                currentProgress: .some(pages),
+                progressPercent: .some(nil),
+                progressSeconds: .some(nil)
+            )
+            libraryManager.updateBookProgressOptimistically(bookId: book.id, currentProgress: pages)
+        case .percent(let pct):
+            book = book.with(
+                currentProgress: .some(nil),
+                progressPercent: .some(pct),
+                progressSeconds: .some(nil)
+            )
+            libraryManager.updateBookProgressOptimistically(bookId: book.id, progressPercent: pct)
+        case .seconds(let secs):
+            book = book.with(
+                currentProgress: .some(nil),
+                progressPercent: .some(nil),
+                progressSeconds: .some(secs)
+            )
+            libraryManager.updateBookProgressOptimistically(bookId: book.id, progressSeconds: secs)
+        }
+
+        // Sync to server
+        guard let userBookId = book.userBookId else { return }
+        switch update {
+        case .pages(let pages):
+            SyncManager.shared.enqueueInsertUserBookRead(
+                userBookId: userBookId,
+                progressPages: pages
+            )
+        case .percent(let pct):
+            SyncManager.shared.enqueueInsertUserBookRead(
+                userBookId: userBookId,
+                progressPercent: pct
+            )
+        case .seconds(let secs):
+            SyncManager.shared.enqueueInsertUserBookRead(
+                userBookId: userBookId,
+                progressSeconds: secs
+            )
         }
     }
 

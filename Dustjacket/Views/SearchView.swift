@@ -53,7 +53,9 @@ struct SearchView: View {
                             progressPercent: nil,
                             progressSeconds: nil,
                             editionId: nil,
-                            editionPageCount: nil
+                            editionPageCount: nil,
+                            editionFormat: nil,
+                            lastReadAt: nil
                         ))
                     } label: {
                         editionResultRow(edition)
@@ -81,7 +83,9 @@ struct SearchView: View {
                             progressPercent: nil,
                             progressSeconds: nil,
                             editionId: nil,
-                            editionPageCount: nil
+                            editionPageCount: nil,
+                            editionFormat: nil,
+                            lastReadAt: nil
                         ))
                     } label: {
                         searchResultRow(result)
@@ -101,10 +105,10 @@ struct SearchView: View {
         .listStyle(.plain)
         .searchable(text: $query, prompt: "Books, authors, ISBN...")
         .onChange(of: query) { _, newValue in
-            debounceSearch(newValue)
+            startSearch(newValue, debounced: true)
         }
         .onSubmit(of: .search) {
-            performSearch(query)
+            startSearch(query, debounced: false)
         }
     }
 
@@ -200,23 +204,29 @@ struct SearchView: View {
 
     // MARK: - Debounced Search
 
-    private func debounceSearch(_ query: String) {
+    private func startSearch(_ query: String, debounced: Bool) {
         searchTask?.cancel()
 
         guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             results = []
+            editionResult = nil
+            searchError = nil
             hasSearched = false
+            isSearching = false
             return
         }
 
         searchTask = Task {
-            try? await Task.sleep(for: .milliseconds(300))
+            if debounced {
+                try? await Task.sleep(for: .milliseconds(300))
+            }
             guard !Task.isCancelled else { return }
-            performSearch(query)
+            await performSearch(query)
         }
     }
 
-    private func performSearch(_ searchQuery: String) {
+    @MainActor
+    private func performSearch(_ searchQuery: String) async {
         let trimmed = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
@@ -225,37 +235,41 @@ struct SearchView: View {
         let looksLikeISBN = (digitsOnly.count == 10 || digitsOnly.count == 13)
             && digitsOnly.count == trimmed.replacingOccurrences(of: "-", with: "").replacingOccurrences(of: " ", with: "").count
 
-        Task {
-            isSearching = true
-            searchError = nil
-            editionResult = nil
+        isSearching = true
+        searchError = nil
+        editionResult = nil
 
-            if looksLikeISBN {
-                // ISBN search: use edition lookup for exact match
-                do {
-                    let lookup = ISBNLookupService(hardcoverService: hardcoverService)
-                    if let edition = try await lookup.lookup(isbn: digitsOnly) {
-                        editionResult = edition
-                        results = []
-                        hasSearched = true
-                        isSearching = false
-                        return
-                    }
-                } catch {
-                    // Fall through to text search
-                }
-            }
-
-            // Text search
+        if looksLikeISBN {
             do {
-                results = try await hardcoverService.searchBooks(query: trimmed, page: 1, perPage: 20)
-                hasSearched = true
+                let lookup = ISBNLookupService(hardcoverService: hardcoverService)
+                if let edition = try await lookup.lookup(isbn: digitsOnly) {
+                    guard !Task.isCancelled, isCurrentQuery(trimmed) else { return }
+                    editionResult = edition
+                    results = []
+                    hasSearched = true
+                    isSearching = false
+                    return
+                }
             } catch {
-                hasSearched = true
-                results = []
-                searchError = error.localizedDescription
+                guard !Task.isCancelled, isCurrentQuery(trimmed) else { return }
             }
-            isSearching = false
         }
+
+        do {
+            let foundResults = try await hardcoverService.searchBooks(query: trimmed, page: 1, perPage: 20)
+            guard !Task.isCancelled, isCurrentQuery(trimmed) else { return }
+            results = foundResults
+            hasSearched = true
+        } catch {
+            guard !Task.isCancelled, isCurrentQuery(trimmed) else { return }
+            hasSearched = true
+            results = []
+            searchError = error.localizedDescription
+        }
+        isSearching = false
+    }
+
+    private func isCurrentQuery(_ expected: String) -> Bool {
+        query.trimmingCharacters(in: .whitespacesAndNewlines) == expected
     }
 }

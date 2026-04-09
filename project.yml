@@ -30,3 +30,14 @@ targets:
         SWIFT_EMIT_LOC_STRINGS: "YES"
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
         INFOPLIST_KEY_UIRequiresFullScreen: true
+  DustjacketTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - DustjacketTests
+    dependencies:
+      - target: Dustjacket
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.campanale.dustjacketTests
+        GENERATE_INFOPLIST_FILE: true

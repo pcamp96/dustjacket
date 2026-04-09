@@ -18,11 +18,14 @@ final class LibraryManager: ObservableObject {
     private var listMappings: [String: Int] = [:]
     /// Maps Hardcover list ID → DJ list key (reverse lookup)
     private var reverseListMappings: [Int: String] = [:]
+    /// Maps "bookId-listId" → list_book record ID (needed for delete_list_book)
+    private var listBookIds: [String: Int] = [:]
 
     private(set) var hardcoverService: HardcoverServiceProtocol?
     private var modelContext: ModelContext?
     private var currentOffset = 0
     private let pageSize = 50
+    private var lastRefreshTime: Date = .distantPast
 
     private init() {}
 
@@ -31,11 +34,48 @@ final class LibraryManager: ObservableObject {
         self.modelContext = context
     }
 
+    func resetState(clearConfiguration: Bool = false) {
+        books = []
+        isLoading = false
+        isLoadingMore = false
+        errorMessage = nil
+        hasMorePages = true
+        clearListMembershipState()
+        currentOffset = 0
+        lastRefreshTime = .distantPast
+
+        if clearConfiguration {
+            hardcoverService = nil
+            modelContext = nil
+        }
+    }
+
+    func clearListMembershipState() {
+        bookListMembership = [:]
+        listMappings = [:]
+        reverseListMappings = [:]
+        listBookIds = [:]
+    }
+
     // MARK: - Fetch
 
     func fetchLibrary(refresh: Bool = false) async {
-        guard let service = hardcoverService else { return }
-        guard !isLoading else { return }
+        print("[DJ-DEBUG] fetchLibrary called, refresh=\(refresh), hasService=\(hardcoverService != nil), isLoading=\(isLoading)")
+        guard let service = hardcoverService else {
+            print("[DJ-DEBUG] fetchLibrary: no service, returning early")
+            return
+        }
+        guard !isLoading else {
+            print("[DJ-DEBUG] fetchLibrary: already loading, returning early")
+            return
+        }
+
+        // Debounce rapid refreshes (min 2 seconds between refreshes)
+        if refresh && Date().timeIntervalSince(lastRefreshTime) < 2.0 {
+            print("[DJ-DEBUG] fetchLibrary: debounced, too soon since last refresh")
+            return
+        }
+        if refresh { lastRefreshTime = .now }
 
         if refresh {
             currentOffset = 0
@@ -46,7 +86,9 @@ final class LibraryManager: ObservableObject {
         errorMessage = nil
 
         do {
+            print("[DJ-DEBUG] Calling getUserBooks...")
             let userBooks = try await service.getUserBooks(statusId: nil, limit: pageSize, offset: 0)
+            print("[DJ-DEBUG] getUserBooks returned \(userBooks.count) books")
             let mapped = userBooks.map { Book(from: $0) }
             books = mapped
             currentOffset = mapped.count
@@ -56,11 +98,20 @@ final class LibraryManager: ObservableObject {
             cacheBooks(mapped)
 
             // Load list memberships for filtering
+            print("[DJ-DEBUG] Loading list memberships...")
             await loadListMemberships()
+            print("[DJ-DEBUG] List memberships loaded, count=\(bookListMembership.count)")
         } catch {
-            errorMessage = error.localizedDescription
-            // Fall back to cached data
-            loadFromCache()
+            print("[DJ-DEBUG] fetchLibrary FAILED: \(error)")
+            // On cancellation, keep current state — don't clobber with stale cache
+            let isCancelled = (error as NSError).code == NSURLErrorCancelled
+            if !isCancelled {
+                errorMessage = error.localizedDescription
+                // Only fall back to cache on real errors (not cancellations)
+                if books.isEmpty {
+                    loadFromCache()
+                }
+            }
         }
 
         isLoading = false
@@ -70,12 +121,12 @@ final class LibraryManager: ObservableObject {
     func loadListMemberships() async {
         guard let service = hardcoverService, let context = modelContext else { return }
 
+        clearListMembershipState()
+
         // Load mappings from Swift Data
         let descriptor = FetchDescriptor<ListMapping>()
         guard let mappings = try? context.fetch(descriptor), !mappings.isEmpty else { return }
 
-        listMappings = [:]
-        reverseListMappings = [:]
         for mapping in mappings {
             listMappings[mapping.djListKey] = mapping.hardcoverListId
             reverseListMappings[mapping.hardcoverListId] = mapping.djListKey
@@ -95,6 +146,11 @@ final class LibraryManager: ObservableObject {
 
                 for listBook in listBooks {
                     membership[listBook.book_id, default: []].insert(djKey)
+
+                    // Track list_book record ID for deletions
+                    if let lbId = listBook.id {
+                        listBookIds["\(listBook.book_id)-\(list.id)"] = lbId
+                    }
 
                     // If this book isn't in our library yet, add it from list data
                     if !existingBookIds.contains(listBook.book_id),
@@ -183,8 +239,14 @@ final class LibraryManager: ObservableObject {
         listMappings[djListKey]
     }
 
+    /// Get the list_book record ID for a specific book on a specific list
+    func listBookRecordId(bookId: Int, listId: Int) -> Int? {
+        listBookIds["\(bookId)-\(listId)"]
+    }
+
     func currentlyReading() -> [Book] {
         books.filter { $0.statusId == 2 }
+            .sorted { ($0.lastReadAt ?? "") > ($1.lastReadAt ?? "") }
     }
 
     func recentlyAdded(limit: Int = 10) -> [Book] {
@@ -219,7 +281,10 @@ final class LibraryManager: ObservableObject {
         if isCurrentlyOn {
             // Remove from list
             bookListMembership[bookId]?.remove(djKey)
-            SyncManager.shared.enqueueRemoveFromList(bookId: bookId, listId: listId)
+            if let listBookId = listBookIds["\(bookId)-\(listId)"] {
+                SyncManager.shared.enqueueRemoveFromList(listBookId: listBookId)
+                listBookIds.removeValue(forKey: "\(bookId)-\(listId)")
+            }
 
             // If book has no more list memberships, remove from library
             if bookListMembership[bookId]?.isEmpty ?? true {
@@ -239,11 +304,27 @@ final class LibraryManager: ObservableObject {
             let oppositeOwnership: OwnershipType = ownership == .owned ? .want : .owned
             let oppositeKey = oppositeOwnership.listKey(for: format)
             if bookListMembership[bookId]?.contains(oppositeKey) == true,
-               let oppositeListId = listMappings[oppositeKey] {
+               let oppositeListId = listMappings[oppositeKey],
+               let oppositeListBookId = listBookIds["\(bookId)-\(oppositeListId)"] {
                 bookListMembership[bookId]?.remove(oppositeKey)
-                SyncManager.shared.enqueueRemoveFromList(bookId: bookId, listId: oppositeListId)
+                SyncManager.shared.enqueueRemoveFromList(listBookId: oppositeListBookId)
+                listBookIds.removeValue(forKey: "\(bookId)-\(oppositeListId)")
             }
         }
+    }
+
+    func updateBookProgressOptimistically(bookId: Int, currentProgress: Int? = nil, progressPercent: Double? = nil, progressSeconds: Int? = nil) {
+        guard let index = books.firstIndex(where: { $0.id == bookId }) else { return }
+        books[index] = books[index].with(
+            currentProgress: .some(currentProgress),
+            progressPercent: .some(progressPercent),
+            progressSeconds: .some(progressSeconds)
+        )
+    }
+
+    func updateBookEditionOptimistically(bookId: Int, coverURL: String? = nil, editionId: Int, editionPageCount: Int?) {
+        guard let index = books.firstIndex(where: { $0.id == bookId }) else { return }
+        books[index] = books[index].with(coverURL: coverURL, editionId: editionId, editionPageCount: editionPageCount)
     }
 
     func updateBookRatingOptimistically(bookId: Int, rating: Double) {
@@ -270,7 +351,12 @@ final class LibraryManager: ObservableObject {
                 hardcoverStatusId: book.statusId,
                 rating: book.rating,
                 userBookId: book.userBookId,
-                editionId: book.editionId
+                editionId: book.editionId,
+                currentProgress: book.currentProgress,
+                progressPercent: book.progressPercent,
+                progressSeconds: book.progressSeconds,
+                editionPageCount: book.editionPageCount,
+                editionFormat: book.editionFormat
             )
             context.insert(cached)
         }

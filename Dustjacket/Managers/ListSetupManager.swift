@@ -45,6 +45,9 @@ final class ListSetupManager: ObservableObject {
         creationProgress = 0
         errorMessage = nil
 
+        // Re-running the wizard should replace the previous DJ mappings, not stack on top.
+        SessionCleanup.clearListMappings(context: context)
+
         // Save mappings for already-matched lists
         for match in listsToMap {
             let listId: Int

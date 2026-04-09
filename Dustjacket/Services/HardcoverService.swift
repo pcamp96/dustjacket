@@ -10,7 +10,7 @@ protocol HardcoverServiceProtocol: Sendable {
     func getUserBooks(statusId: Int?, limit: Int, offset: Int) async throws -> [HardcoverUserBook]
     func createList(name: String) async throws -> HardcoverList
     func addBookToList(bookId: Int, listId: Int) async throws
-    func removeBookFromList(bookId: Int, listId: Int) async throws
+    func removeBookFromList(listBookId: Int) async throws
     func deleteList(id: Int) async throws
     func getTrendingBooks(from: String, to: String, limit: Int, offset: Int) async throws -> [HardcoverTrendingBook]
     func insertUserBook(bookId: Int, statusId: Int) async throws -> HardcoverUserBook
@@ -19,7 +19,7 @@ protocol HardcoverServiceProtocol: Sendable {
     func getUserGoals() async throws -> [HardcoverGoal]
     func insertGoal(metric: String, goal: Int, startDate: String, endDate: String, description: String) async throws -> Int
     func deleteGoal(id: Int) async throws
-    func insertUserBookRead(userBookId: Int, progressPages: Int) async throws -> Int
+    func insertUserBookRead(userBookId: Int, progressPages: Int?, progressPercent: Double?, progressSeconds: Int?) async throws -> Int
     func updateUserBookReview(id: Int, reviewText: String, hasSpoilers: Bool) async throws
     func insertReadingJournal(bookId: Int, event: String, entry: String?, privacySettingId: Int) async throws -> Int
     func getEditionsByBookId(_ bookId: Int) async throws -> [HardcoverEdition]
@@ -67,7 +67,7 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
 
     func searchBooks(query searchQuery: String, page: Int = 1, perPage: Int = 10) async throws -> [HardcoverSearchResult] {
         // Inline the search params to avoid variable type mismatch issues
-        let escapedQuery = searchQuery.replacingOccurrences(of: "\"", with: "\\\"")
+        let escapedQuery = GraphQLStringEscaper.escape(searchQuery)
         let query = """
         {
             search(query: "\(escapedQuery)", query_type: "books", per_page: \(perPage), page: \(page)) {
@@ -150,8 +150,17 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
                     status_id
                     rating
                     edition_id
+                    edition {
+                        id
+                        title
+                        pages
+                        edition_format
+                        image {
+                            url
+                        }
+                    }
                     created_at
-                    user_book_reads(order_by: { created_at: desc }, limit: 1) {
+                    user_book_reads(order_by: { id: desc }, limit: 1) {
                         id
                         progress
                         progress_pages
@@ -203,6 +212,7 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
                     description
                     books_count
                     list_books {
+                        id
                         book_id
                         book {
                             id
@@ -277,17 +287,17 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
         )
     }
 
-    func removeBookFromList(bookId: Int, listId: Int) async throws {
+    func removeBookFromList(listBookId: Int) async throws {
         let query = """
-        mutation RemoveFromList($bookId: Int!, $listId: Int!) {
-            delete_list_book(book_id: $bookId, list_id: $listId) {
+        mutation RemoveFromList($id: Int!) {
+            delete_list_book(id: $id) {
                 id
             }
         }
         """
         let _: HardcoverIDResponse = try await client.execute(
             query: query,
-            variables: ["bookId": bookId, "listId": listId],
+            variables: ["id": listBookId],
             responseKeyPath: "delete_list_book",
             responseType: HardcoverIDResponse.self
         )
@@ -478,8 +488,8 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
     }
 
     func insertGoal(metric: String, goal: Int, startDate: String, endDate: String, description: String) async throws -> Int {
-        let escapedDesc = description.replacingOccurrences(of: "\"", with: "\\\"")
-        let escapedMetric = metric.replacingOccurrences(of: "\"", with: "\\\"")
+        let escapedDesc = GraphQLStringEscaper.escape(description)
+        let escapedMetric = GraphQLStringEscaper.escape(metric)
         let query = """
         mutation {
             insert_goal(object: {
@@ -525,17 +535,41 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
 
     // MARK: - Reading Progress
 
-    func insertUserBookRead(userBookId: Int, progressPages: Int) async throws -> Int {
+    func insertUserBookRead(userBookId: Int, progressPages: Int? = nil, progressPercent: Double? = nil, progressSeconds: Int? = nil) async throws -> Int {
+        var fields: [String] = []
+        var variables: [String: Any] = ["userBookId": userBookId]
+
+        if let pages = progressPages {
+            fields.append("progress_pages: $pages")
+            variables["pages"] = pages
+        }
+        if let percent = progressPercent {
+            fields.append("progress: $percent")
+            variables["percent"] = percent
+        }
+        if let seconds = progressSeconds {
+            fields.append("progress_seconds: $seconds")
+            variables["seconds"] = seconds
+        }
+
+        guard !fields.isEmpty else { throw GraphQLClientError.noData }
+
+        // Build variable declarations for the mutation signature
+        var varDecls = ["$userBookId: Int!"]
+        if progressPages != nil { varDecls.append("$pages: Int!") }
+        if progressPercent != nil { varDecls.append("$percent: Float!") }
+        if progressSeconds != nil { varDecls.append("$seconds: Int!") }
+
         let query = """
-        mutation InsertRead($userBookId: Int!, $pages: Int!) {
-            insert_user_book_read(user_book_id: $userBookId, user_book_read: { progress_pages: $pages }) {
+        mutation InsertRead(\(varDecls.joined(separator: ", "))) {
+            insert_user_book_read(user_book_id: $userBookId, user_book_read: { \(fields.joined(separator: ", ")) }) {
                 id
             }
         }
         """
         let response: HardcoverIDResponse = try await client.execute(
             query: query,
-            variables: ["userBookId": userBookId, "pages": progressPages],
+            variables: variables,
             responseKeyPath: "insert_user_book_read",
             responseType: HardcoverIDResponse.self
         )
@@ -545,10 +579,7 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
     // MARK: - Reviews
 
     func updateUserBookReview(id: Int, reviewText: String, hasSpoilers: Bool) async throws {
-        let escapedText = reviewText
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-            .replacingOccurrences(of: "\n", with: "\\n")
+        let escapedText = GraphQLStringEscaper.escape(reviewText)
 
         let slateJson = "[{\\\"type\\\":\\\"paragraph\\\",\\\"children\\\":[{\\\"text\\\":\\\"\(escapedText)\\\"}]}]"
 
@@ -576,15 +607,16 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
     func insertReadingJournal(bookId: Int, event: String, entry: String?, privacySettingId: Int = 1) async throws -> Int {
         var entryField = ""
         if let entry, !entry.isEmpty {
-            let escaped = entry.replacingOccurrences(of: "\"", with: "\\\"")
+            let escaped = GraphQLStringEscaper.escape(entry)
             entryField = ", entry: \"\(escaped)\""
         }
+        let escapedEvent = GraphQLStringEscaper.escape(event)
 
         let query = """
         mutation {
             insert_reading_journal(object: {
                 book_id: \(bookId),
-                event: "\(event)",
+                event: "\(escapedEvent)",
                 privacy_setting_id: \(privacySettingId)
                 \(entryField)
             }) {

@@ -6,6 +6,8 @@ struct SettingsView: View {
     var onSignOut: () -> Void
     var onRerunWizard: () -> Void
 
+    @Environment(\.modelContext) private var modelContext
+    @ObservedObject private var syncManager = SyncManager.shared
     @State private var showSignOutConfirmation = false
 
     var body: some View {
@@ -23,6 +25,22 @@ struct SettingsView: View {
                             .font(.caption)
                             .foregroundStyle(.red)
                     }
+                }
+            }
+
+            Section("Sync") {
+                HStack {
+                    Text("Pending Writes")
+                    Spacer()
+                    Text("\(syncManager.pendingCount)")
+                        .foregroundStyle(.secondary)
+                }
+
+                HStack {
+                    Text("Failed Writes")
+                    Spacer()
+                    Text("\(syncManager.failedCount)")
+                        .foregroundStyle(syncManager.failedCount == 0 ? Color.secondary : .red)
                 }
             }
 
@@ -64,6 +82,7 @@ struct SettingsView: View {
         .navigationTitle("Settings")
         .confirmationDialog("Sign Out?", isPresented: $showSignOutConfirmation) {
             Button("Sign Out", role: .destructive) {
+                SessionCleanup.signOut(context: modelContext)
                 onSignOut()
             }
             Button("Cancel", role: .cancel) {}

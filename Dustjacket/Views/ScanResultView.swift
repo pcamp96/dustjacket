@@ -1,12 +1,10 @@
 import SwiftUI
-import SwiftData
 
 struct ScanResultView: View {
     let edition: Edition
     let hardcoverService: HardcoverServiceProtocol
     var onDismiss: () -> Void
 
-    @Environment(\.modelContext) private var modelContext
     @State private var selectedDJList: DJList?
     @State private var isSaving = false
     @State private var saved = false
@@ -157,51 +155,47 @@ struct ScanResultView: View {
         isSaving = true
         errorMessage = nil
 
-        // Look up the Hardcover list ID from our mappings
-        let descriptor = FetchDescriptor<ListMapping>(
-            predicate: #Predicate { $0.djListKey == djList.key }
-        )
-
-        guard let mapping = try? modelContext.fetch(descriptor).first else {
+        guard LibraryManager.shared.hardcoverListId(for: djList.key) != nil else {
             errorMessage = "List not set up. Please re-run the setup wizard."
             isSaving = false
             return
         }
 
-        do {
-            try await hardcoverService.addBookToList(bookId: edition.bookId, listId: mapping.hardcoverListId)
+        let book = Book(
+            id: edition.bookId,
+            title: edition.bookTitle ?? edition.title ?? "Unknown",
+            authorNames: edition.authorNames,
+            coverURL: edition.coverURL,
+            slug: edition.bookSlug,
+            pageCount: edition.pageCount,
+            isbn13: edition.isbn13,
+            seriesID: edition.seriesID,
+            seriesName: edition.seriesName,
+            seriesPosition: edition.seriesPosition,
+            statusId: nil,
+            rating: nil,
+            userBookId: nil,
+            currentProgress: nil,
+            progressPercent: nil,
+            progressSeconds: nil,
+            editionId: edition.id != 0 ? edition.id : nil,
+            editionPageCount: edition.pageCount,
+            editionFormat: edition.format?.rawValue,
+            lastReadAt: nil
+        )
 
-            // Optimistic: add to local library
-            let book = Book(
-                id: edition.bookId,
-                title: edition.bookTitle ?? edition.title ?? "Unknown",
-                authorNames: edition.authorNames,
-                coverURL: edition.coverURL,
-                slug: edition.bookSlug,
-                pageCount: edition.pageCount,
-                isbn13: edition.isbn13,
-                seriesID: edition.seriesID,
-                seriesName: edition.seriesName,
-                seriesPosition: edition.seriesPosition,
-                statusId: nil,
-                rating: nil,
-                userBookId: nil,
-                currentProgress: nil,
-                progressPercent: nil,
-                progressSeconds: nil,
-                editionId: nil,
-                editionPageCount: nil
-            )
-            LibraryManager.shared.addBookOptimistically(book)
+        LibraryManager.shared.toggleBookOnDJList(
+            bookId: edition.bookId,
+            ownership: djList.ownership,
+            format: djList.format,
+            book: book
+        )
 
-            saved = true
+        saved = true
 
-            // Auto-dismiss after a moment
-            try? await Task.sleep(for: .seconds(1.5))
-            onDismiss()
-        } catch {
-            errorMessage = "Failed to add: \(error.localizedDescription)"
-        }
+        // Auto-dismiss after a moment
+        try? await Task.sleep(for: .seconds(1.5))
+        onDismiss()
 
         isSaving = false
     }

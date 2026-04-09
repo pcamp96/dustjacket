@@ -87,6 +87,7 @@ struct ContentView: View {
             SyncManager.shared.configure(service: hardcoverService, context: modelContext)
             GoalManager.shared.configure(service: hardcoverService)
             ActivityManager.shared.configure(service: hardcoverService)
+            ProfileManager.shared.configure(service: hardcoverService)
 
             // Fetch library + list memberships in one flow
             await libraryManager.fetchLibrary()

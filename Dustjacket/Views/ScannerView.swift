@@ -14,65 +14,46 @@ struct ScannerView: View {
         ZStack {
             switch manager.scanState {
             case .scanning:
-                if DataScannerViewController.isSupported && DataScannerViewController.isAvailable {
-                    DataScannerRepresentable(
-                        onBarcodeDetected: { barcode in
-                            Task { await manager.handleBarcodeDetected(barcode) }
-                        },
-                        onTextDetected: { text in
-                            Task { await manager.handleTextDetected(text) }
-                        }
-                    )
-                    .ignoresSafeArea()
-
-                    VStack {
-                        Spacer()
-                        Text("Point at a barcode or printed ISBN")
-                            .font(.caption)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(.ultraThinMaterial)
-                            .clipShape(Capsule())
-                        Spacer().frame(height: 40)
-                    }
-                } else {
-                    ContentUnavailableView(
-                        "Camera Not Available",
-                        systemImage: "camera.fill",
-                        description: Text("Barcode scanning requires camera access. Please enable it in Settings.")
-                    )
-                }
+                scannerSurface
 
             case .lookingUp:
-                VStack(spacing: 16) {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                    Text("Looking up book...")
-                        .font(.headline)
-                        .foregroundStyle(.secondary)
+                ZStack {
+                    Color.black.ignoresSafeArea()
+
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                        Text("Looking up \(manager.lastScannedISBN ?? "book")...")
+                            .font(.headline)
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
             case .found:
                 if let book = manager.foundBook {
-                    ScrollView {
-                        VStack(spacing: 0) {
+                    BookDetailView(book: book)
+                        .safeAreaInset(edge: .top) {
                             HStack {
                                 Button {
                                     manager.reset()
                                 } label: {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "chevron.left")
-                                        Text("Scan")
-                                    }
+                                    Label("Scan Again", systemImage: "barcode.viewfinder")
+                                        .font(.subheadline.weight(.semibold))
                                 }
+                                .buttonStyle(.borderedProminent)
+
                                 Spacer()
+
+                                if let isbn = manager.lastScannedISBN {
+                                    Text(isbn)
+                                        .font(.caption.monospacedDigit())
+                                        .foregroundStyle(.secondary)
+                                }
                             }
                             .padding(.horizontal)
-                            .padding(.top, 8)
-
-                            BookDetailView(book: book)
+                            .padding(.vertical, 10)
+                            .background(.ultraThinMaterial)
                         }
-                    }
                 }
 
             case .notFound:
@@ -87,12 +68,80 @@ struct ScannerView: View {
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
+
+                    if let isbn = manager.lastScannedISBN {
+                        Text(isbn)
+                            .font(.callout.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+
                     Button("Scan Again") {
                         manager.reset()
                     }
                     .buttonStyle(.borderedProminent)
                 }
+                .padding(.horizontal, 24)
             }
+        }
+        .overlay(alignment: .bottom) {
+            if let errorMessage = manager.errorMessage, manager.scanState == .scanning {
+                Text(errorMessage)
+                    .font(.caption)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .padding(.bottom, 24)
+            }
+        }
+        .animation(.snappy, value: manager.scanState)
+    }
+
+    @ViewBuilder
+    private var scannerSurface: some View {
+        if DataScannerViewController.isSupported && DataScannerViewController.isAvailable {
+            DataScannerRepresentable(
+                onBarcodeDetected: { barcode in
+                    Task { @MainActor in
+                        manager.handleBarcodeDetected(barcode)
+                    }
+                },
+                onTextDetected: { text in
+                    Task { @MainActor in
+                        manager.handleTextDetected(text)
+                    }
+                }
+            )
+            .id(manager.scannerSessionID)
+            .ignoresSafeArea()
+            .overlay {
+                scannerOverlay
+            }
+        } else {
+            ContentUnavailableView(
+                "Camera Not Available",
+                systemImage: "camera.fill",
+                description: Text("Barcode scanning requires camera access. Please enable it in Settings.")
+            )
+        }
+    }
+
+    private var scannerOverlay: some View {
+        VStack {
+            Spacer()
+
+            RoundedRectangle(cornerRadius: 24)
+                .strokeBorder(.white.opacity(0.8), lineWidth: 2)
+                .frame(width: 260, height: 180)
+                .overlay(alignment: .top) {
+                    Text("Point at a barcode or printed ISBN")
+                        .font(.caption.weight(.medium))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .offset(y: -18)
+                }
+
+            Spacer()
         }
     }
 }
@@ -111,6 +160,9 @@ struct DataScannerRepresentable: UIViewControllerRepresentable {
             ],
             qualityLevel: .balanced,
             recognizesMultipleItems: true,
+            isHighFrameRateTrackingEnabled: true,
+            isPinchToZoomEnabled: true,
+            isGuidanceEnabled: true,
             isHighlightingEnabled: true
         )
         scanner.delegate = context.coordinator
@@ -118,53 +170,92 @@ struct DataScannerRepresentable: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: DataScannerViewController, context: Context) {
+        context.coordinator.updateCallbacks(
+            onBarcodeDetected: onBarcodeDetected,
+            onTextDetected: onTextDetected
+        )
+
         if !uiViewController.isScanning {
-            try? uiViewController.startScanning()
+            do {
+                try uiViewController.startScanning()
+            } catch {
+                assertionFailure("Failed to start scanner: \(error.localizedDescription)")
+            }
         }
+    }
+
+    static func dismantleUIViewController(_ uiViewController: DataScannerViewController, coordinator: Coordinator) {
+        uiViewController.stopScanning()
     }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(onBarcodeDetected: onBarcodeDetected, onTextDetected: onTextDetected)
     }
 
-    class Coordinator: NSObject, DataScannerViewControllerDelegate {
-        var onBarcodeDetected: (String) -> Void
-        var onTextDetected: (String) -> Void
-        private var lastDetected: String?
-        private var hasTriggered = false
+    final class Coordinator: NSObject, DataScannerViewControllerDelegate {
+        private var onBarcodeDetected: (String) -> Void
+        private var onTextDetected: (String) -> Void
+        private let duplicateCooldown: TimeInterval = 0.75
+        private var recentEmissions: [String: Date] = [:]
 
         init(onBarcodeDetected: @escaping (String) -> Void, onTextDetected: @escaping (String) -> Void) {
             self.onBarcodeDetected = onBarcodeDetected
             self.onTextDetected = onTextDetected
         }
 
-        func dataScanner(_ dataScanner: DataScannerViewController, didAdd addedItems: [RecognizedItem], allItems: [RecognizedItem]) {
-            guard !hasTriggered else { return }
+        func updateCallbacks(onBarcodeDetected: @escaping (String) -> Void, onTextDetected: @escaping (String) -> Void) {
+            self.onBarcodeDetected = onBarcodeDetected
+            self.onTextDetected = onTextDetected
+        }
 
-            for item in addedItems {
-                switch item {
-                case .barcode(let barcode):
-                    if let value = barcode.payloadStringValue, value != lastDetected {
-                        lastDetected = value
-                        hasTriggered = true
-                        onBarcodeDetected(value)
-                        return
+        func dataScanner(_ dataScanner: DataScannerViewController, didAdd addedItems: [RecognizedItem], allItems: [RecognizedItem]) {
+            process(addedItems)
+        }
+
+        func dataScanner(_ dataScanner: DataScannerViewController, didUpdate updatedItems: [RecognizedItem], allItems: [RecognizedItem]) {
+            process(updatedItems)
+        }
+
+        private func process(_ items: [RecognizedItem]) {
+            pruneRecentEmissions()
+
+            for item in items {
+                if case .barcode(let barcode) = item,
+                   let value = barcode.payloadStringValue?.trimmingCharacters(in: .whitespacesAndNewlines),
+                   shouldEmit(value) {
+                    onBarcodeDetected(value)
+                    return
+                }
+            }
+
+            for item in items {
+                if case .text(let text) = item {
+                    let transcript = text.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !transcript.isEmpty,
+                          ISBNLookupService.likelyContainsISBN(transcript),
+                          shouldEmit(transcript) else {
+                        continue
                     }
-                case .text(let text):
-                    let recognized = text.transcript
-                    if recognized != lastDetected {
-                        lastDetected = recognized
-                        onTextDetected(recognized)
-                    }
-                @unknown default:
-                    break
+
+                    onTextDetected(transcript)
+                    return
                 }
             }
         }
 
-        func reset() {
-            lastDetected = nil
-            hasTriggered = false
+        private func shouldEmit(_ payload: String) -> Bool {
+            if let lastEmission = recentEmissions[payload],
+               Date().timeIntervalSince(lastEmission) < duplicateCooldown {
+                return false
+            }
+
+            recentEmissions[payload] = Date()
+            return true
+        }
+
+        private func pruneRecentEmissions() {
+            let cutoff = Date().addingTimeInterval(-duplicateCooldown)
+            recentEmissions = recentEmissions.filter { $0.value >= cutoff }
         }
     }
 }
