@@ -20,6 +20,10 @@
   <strong>SwiftUI</strong> · <strong>SwiftData</strong> · <strong>VisionKit</strong> · <strong>Hardcover GraphQL API</strong>
 </p>
 
+<p align="center">
+  <a href="https://dustjacketapp.com">Website</a>
+</p>
+
 ## Highlights
 
 - Barcode scanning with OCR fallback for printed ISBNs inside the book.

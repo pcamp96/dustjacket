@@ -66,6 +66,10 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                Link(destination: URL(string: "https://dustjacketapp.com")!) {
+                    Label("Dustjacket Website", systemImage: "globe")
+                }
+
                 Link(destination: URL(string: "https://hardcover.app")!) {
                     Label("Hardcover Website", systemImage: "safari")
                 }
