@@ -5,6 +5,7 @@ import Foundation
 protocol HardcoverServiceProtocol: Sendable {
     func validateToken() async throws -> HardcoverUser
     func searchBooks(query: String, page: Int, perPage: Int) async throws -> [HardcoverSearchResult]
+    func getBookDetails(bookId: Int) async throws -> Book
     func getEditionByISBN(_ isbn: String) async throws -> [HardcoverEdition]
     func getUserLists() async throws -> [HardcoverList]
     func getUserBooks(statusId: Int?, limit: Int, offset: Int) async throws -> [HardcoverUserBook]
@@ -85,6 +86,19 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
     }
 
     // MARK: - Editions
+
+    func getBookDetails(bookId: Int) async throws -> Book {
+        async let fullBookTask = getBookById(bookId)
+        async let existingUserBookTask = getUserBook(for: bookId)
+
+        let existingUserBook = try await existingUserBookTask
+        if let existingUserBook {
+            return Book(from: existingUserBook)
+        }
+
+        let fullBook = try await fullBookTask
+        return Book(from: fullBook)
+    }
 
     func getEditionByISBN(_ isbn: String) async throws -> [HardcoverEdition] {
         let query = """
@@ -334,6 +348,13 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
                         url
                     }
                     cached_contributors
+                    book_series {
+                        series {
+                            id
+                            name
+                        }
+                        position
+                    }
                 }
                 users_count
             }
@@ -675,5 +696,113 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
             responseKeyPath: "editions",
             responseType: [HardcoverEdition].self
         )
+    }
+
+    private func getBookById(_ bookId: Int) async throws -> HardcoverBook {
+        let query = """
+        query BookById($bookId: Int!) {
+            books(where: { id: { _eq: $bookId } }, limit: 1) {
+                id
+                title
+                slug
+                pages
+                image {
+                    url
+                }
+                cached_contributors
+                contributions {
+                    author {
+                        id
+                        name
+                    }
+                }
+                book_series {
+                    series {
+                        id
+                        name
+                    }
+                    position
+                }
+            }
+        }
+        """
+
+        let books: [HardcoverBook] = try await client.execute(
+            query: query,
+            variables: ["bookId": bookId],
+            responseKeyPath: "books",
+            responseType: [HardcoverBook].self
+        )
+
+        guard let book = books.first else {
+            throw GraphQLClientError.noData
+        }
+
+        return book
+    }
+
+    private func getUserBook(for bookId: Int) async throws -> HardcoverUserBook? {
+        let query = """
+        query UserBookByBookId($bookId: Int!) {
+            me {
+                user_books(where: { book_id: { _eq: $bookId } }, limit: 1, order_by: { created_at: desc }) {
+                    id
+                    status_id
+                    rating
+                    edition_id
+                    edition {
+                        id
+                        title
+                        pages
+                        edition_format
+                        image {
+                            url
+                        }
+                    }
+                    created_at
+                    user_book_reads(order_by: { id: desc }, limit: 1) {
+                        id
+                        progress
+                        progress_pages
+                        progress_seconds
+                        started_at
+                        finished_at
+                    }
+                    book {
+                        id
+                        title
+                        slug
+                        pages
+                        image {
+                            url
+                        }
+                        cached_contributors
+                        contributions {
+                            author {
+                                id
+                                name
+                            }
+                        }
+                        book_series {
+                            series {
+                                id
+                                name
+                            }
+                            position
+                        }
+                    }
+                }
+            }
+        }
+        """
+
+        let meArray: [HardcoverMeUserBooks] = try await client.execute(
+            query: query,
+            variables: ["bookId": bookId],
+            responseKeyPath: "me",
+            responseType: [HardcoverMeUserBooks].self
+        )
+
+        return meArray.first?.user_books.first
     }
 }

@@ -255,6 +255,26 @@ final class LibraryManager: ObservableObject {
 
     // MARK: - Optimistic Updates
 
+    func book(withID bookId: Int) -> Book? {
+        books.first { $0.id == bookId }
+    }
+
+    func upsertBook(_ book: Book) {
+        let cachedBook: Book
+
+        if let index = books.firstIndex(where: { $0.id == book.id }) {
+            books[index] = books[index].merged(with: book)
+            cachedBook = books[index]
+        } else if book.userBookId != nil || book.statusId != nil {
+            books.insert(book, at: 0)
+            cachedBook = book
+        } else {
+            cachedBook = book
+        }
+
+        cacheBooks([cachedBook])
+    }
+
     func addBookOptimistically(_ book: Book) {
         guard !books.contains(where: { $0.id == book.id }) else { return }
         books.insert(book, at: 0)

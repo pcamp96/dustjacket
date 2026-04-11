@@ -52,9 +52,9 @@ struct SearchView: View {
                             currentProgress: nil,
                             progressPercent: nil,
                             progressSeconds: nil,
-                            editionId: nil,
-                            editionPageCount: nil,
-                            editionFormat: nil,
+                            editionId: edition.id != 0 ? edition.id : nil,
+                            editionPageCount: edition.pageCount,
+                            editionFormat: edition.format?.rawValue,
                             lastReadAt: nil
                         ))
                     } label: {
@@ -70,7 +70,7 @@ struct SearchView: View {
                             title: result.title ?? "Unknown",
                             authorNames: result.authorNames,
                             coverURL: result.imageURL,
-                            slug: nil,
+                            slug: result.slug,
                             pageCount: nil,
                             isbn13: nil,
                             seriesID: nil,

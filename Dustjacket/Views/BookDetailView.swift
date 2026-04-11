@@ -3,6 +3,7 @@ import SwiftUI
 struct BookDetailView: View {
     @State private var book: Book
     @ObservedObject private var libraryManager = LibraryManager.shared
+    @State private var isHydrating = false
     @State private var showProgressSheet = false
     @State private var showReviewEditor = false
     @State private var showJournalEditor = false
@@ -246,6 +247,9 @@ struct BookDetailView: View {
         }
         .navigationTitle(book.title)
         .navigationBarTitleDisplayMode(.inline)
+        .task(id: book.id) {
+            await hydrateBookDetailsIfNeeded()
+        }
         .sheet(isPresented: $showEditionPicker) {
             if let service = LibraryManager.shared.hardcoverService {
                 EditionPickerSheet(
@@ -315,14 +319,17 @@ struct BookDetailView: View {
     // MARK: - Actions
 
     private func changeStatus(to statusId: Int) {
+        let updatedBook = book.with(statusId: statusId)
+
         if let userBookId = book.userBookId {
             SyncManager.shared.enqueueUpdateUserBook(userBookId: userBookId, statusId: statusId)
+            libraryManager.updateBookStatusOptimistically(bookId: book.id, statusId: statusId)
         } else {
             SyncManager.shared.enqueueInsertUserBook(bookId: book.id, statusId: statusId)
+            libraryManager.upsertBook(updatedBook)
         }
 
-        libraryManager.updateBookStatusOptimistically(bookId: book.id, statusId: statusId)
-        book = book.with(statusId: statusId)
+        book = updatedBook
     }
 
     private func removeFromLibrary() {
@@ -399,6 +406,31 @@ struct BookDetailView: View {
     }
 
     // MARK: - Helpers
+
+    @MainActor
+    private func hydrateBookDetailsIfNeeded() async {
+        if let cachedBook = libraryManager.book(withID: book.id) {
+            book = book.merged(with: cachedBook)
+        }
+
+        guard book.id > 0, book.needsDetailHydration else { return }
+        guard let service = libraryManager.hardcoverService else { return }
+        guard !isHydrating else { return }
+
+        isHydrating = true
+        defer { isHydrating = false }
+
+        do {
+            let hydratedBook = try await service.getBookDetails(bookId: book.id)
+            guard !Task.isCancelled else { return }
+
+            let mergedBook = book.merged(with: hydratedBook)
+            book = mergedBook
+            libraryManager.upsertBook(mergedBook)
+        } catch {
+            // Non-fatal: detail screens can still render partial book data.
+        }
+    }
 
     private func metadataRow(label: String, value: String) -> some View {
         HStack {

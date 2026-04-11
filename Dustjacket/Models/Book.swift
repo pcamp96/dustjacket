@@ -83,6 +83,10 @@ struct Book: Identifiable, Codable, Hashable, Sendable {
         return URL(string: "https://hardcover.app/books/\(slug)")
     }
 
+    var needsDetailHydration: Bool {
+        slug == nil || pageCount == nil || authorNames.isEmpty
+    }
+
     /// Create a copy with modified fields
     func with(
         coverURL: String?? = nil,
@@ -111,6 +115,31 @@ struct Book: Identifiable, Codable, Hashable, Sendable {
             editionPageCount: editionPageCount ?? self.editionPageCount,
             editionFormat: editionFormat ?? self.editionFormat,
         lastReadAt: self.lastReadAt
+        )
+    }
+
+    func merged(with other: Book) -> Book {
+        Book(
+            id: id,
+            title: other.title.isEmpty ? title : other.title,
+            authorNames: other.authorNames.isEmpty ? authorNames : other.authorNames,
+            coverURL: other.coverURL ?? coverURL,
+            slug: other.slug ?? slug,
+            pageCount: other.pageCount ?? pageCount,
+            isbn13: other.isbn13 ?? isbn13,
+            seriesID: other.seriesID ?? seriesID,
+            seriesName: other.seriesName ?? seriesName,
+            seriesPosition: other.seriesPosition ?? seriesPosition,
+            statusId: other.statusId ?? statusId,
+            rating: other.rating ?? rating,
+            userBookId: other.userBookId ?? userBookId,
+            currentProgress: other.currentProgress ?? currentProgress,
+            progressPercent: other.progressPercent ?? progressPercent,
+            progressSeconds: other.progressSeconds ?? progressSeconds,
+            editionId: other.editionId ?? editionId,
+            editionPageCount: other.editionPageCount ?? editionPageCount,
+            editionFormat: other.editionFormat ?? editionFormat,
+            lastReadAt: other.lastReadAt ?? lastReadAt
         )
     }
 }
