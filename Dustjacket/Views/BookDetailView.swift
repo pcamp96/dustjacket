@@ -325,7 +325,7 @@ struct BookDetailView: View {
             SyncManager.shared.enqueueUpdateUserBook(userBookId: userBookId, statusId: statusId)
             libraryManager.updateBookStatusOptimistically(bookId: book.id, statusId: statusId)
         } else {
-            SyncManager.shared.enqueueInsertUserBook(bookId: book.id, statusId: statusId)
+            SyncManager.shared.enqueueInsertUserBook(bookId: book.id, statusId: statusId, editionId: book.editionId)
             libraryManager.upsertBook(updatedBook)
         }
 
@@ -351,11 +351,22 @@ struct BookDetailView: View {
     }
 
     private func selectEdition(_ edition: Edition) {
-        book = book.with(coverURL: edition.coverURL, editionId: edition.id, editionPageCount: edition.pageCount)
+        book = book.with(
+            coverURL: edition.coverURL,
+            editionId: edition.id,
+            editionPageCount: edition.pageCount,
+            editionFormat: .some(edition.format?.rawValue)
+        )
         if let userBookId = book.userBookId {
             SyncManager.shared.enqueueUpdateUserBook(userBookId: userBookId, editionId: edition.id)
         }
-        libraryManager.updateBookEditionOptimistically(bookId: book.id, coverURL: edition.coverURL, editionId: edition.id, editionPageCount: edition.pageCount)
+        libraryManager.updateBookEditionOptimistically(
+            bookId: book.id,
+            coverURL: edition.coverURL,
+            editionId: edition.id,
+            editionPageCount: edition.pageCount,
+            editionFormat: edition.format?.rawValue
+        )
     }
 
     private func updateProgress(_ update: ProgressUpdate) {

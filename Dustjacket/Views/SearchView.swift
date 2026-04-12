@@ -6,21 +6,24 @@ struct SearchView: View {
     @State private var query = ""
     @State private var results: [HardcoverSearchResult] = []
     @State private var editionResult: Edition?
+    @State private var missingImportDraft: MissingEditionDraft?
+    @State private var pendingImport: PendingEditionImportStatus?
     @State private var isSearching = false
     @State private var hasSearched = false
     @State private var searchError: String?
     @State private var searchTask: Task<Void, Never>?
+    @State private var importSheetDraft: MissingEditionDraft?
 
     var body: some View {
         List {
-            if !hasSearched && results.isEmpty {
+            if !hasSearched && results.isEmpty && !hasISBNLookupState {
                 ContentUnavailableView(
                     "Search Hardcover",
                     systemImage: "magnifyingglass",
                     description: Text("Search by title, author, or ISBN.")
                 )
                 .listRowSeparator(.hidden)
-            } else if hasSearched && results.isEmpty && !isSearching {
+            } else if hasSearched && results.isEmpty && !isSearching && !hasISBNLookupState {
                 VStack(spacing: 8) {
                     ContentUnavailableView.search(text: query)
                     if let searchError {
@@ -32,34 +35,20 @@ struct SearchView: View {
                 }
                 .listRowSeparator(.hidden)
             } else {
-                // Edition result (from ISBN search)
                 if let edition = editionResult {
                     NavigationLink {
-                        BookDetailView(book: Book(
-                            id: edition.bookId,
-                            title: edition.bookTitle ?? edition.title ?? "Unknown",
-                            authorNames: edition.authorNames,
-                            coverURL: edition.coverURL,
-                            slug: edition.bookSlug,
-                            pageCount: edition.pageCount,
-                            isbn13: edition.isbn13,
-                            seriesID: edition.seriesID,
-                            seriesName: edition.seriesName,
-                            seriesPosition: edition.seriesPosition,
-                            statusId: nil,
-                            rating: nil,
-                            userBookId: nil,
-                            currentProgress: nil,
-                            progressPercent: nil,
-                            progressSeconds: nil,
-                            editionId: edition.id != 0 ? edition.id : nil,
-                            editionPageCount: edition.pageCount,
-                            editionFormat: edition.format?.rawValue,
-                            lastReadAt: nil
-                        ))
+                        BookDetailView(book: Book(from: edition))
                     } label: {
                         editionResultRow(edition)
                     }
+                }
+
+                if let pendingImport {
+                    pendingImportRow(pendingImport)
+                }
+
+                if let missingImportDraft {
+                    missingImportRow(missingImportDraft)
                 }
 
                 // Text search results
@@ -104,6 +93,11 @@ struct SearchView: View {
         }
         .listStyle(.plain)
         .searchable(text: $query, prompt: "Books, authors, ISBN...")
+        .sheet(item: $importSheetDraft) { draft in
+            EditionImportSheet(initialDraft: draft) { outcome in
+                applyISBNLookupOutcome(outcome)
+            }
+        }
         .onChange(of: query) { _, newValue in
             startSearch(newValue, debounced: true)
         }
@@ -202,6 +196,69 @@ struct SearchView: View {
         .padding(.vertical, 4)
     }
 
+    private func missingImportRow(_ draft: MissingEditionDraft) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("ISBN not on Hardcover yet", systemImage: "square.and.arrow.down")
+                .font(.headline)
+
+            Text("Import this edition by ISBN and keep the flow edition-linked before you add it to your library.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Text(draft.isbn)
+                .font(.caption.monospaced())
+                .foregroundStyle(.tertiary)
+
+            Button("Import Missing Edition") {
+                importSheetDraft = draft
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding(.vertical, 8)
+        .listRowSeparator(.hidden)
+    }
+
+    private func pendingImportRow(_ pending: PendingEditionImportStatus) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Edition import pending", systemImage: "clock.arrow.circlepath")
+                .font(.headline)
+
+            Text("Hardcover is still processing this ISBN. Dustjacket will keep checking for the edition.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Text(pending.isbn)
+                .font(.caption.monospaced())
+                .foregroundStyle(.tertiary)
+
+            if !pending.title.isEmpty || !pending.authorNamesText.isEmpty {
+                Text([pending.title, pending.authorNamesText]
+                    .filter { !$0.isEmpty }
+                    .joined(separator: " • "))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let lastError = pending.lastError, !lastError.isEmpty {
+                Text(lastError)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+
+            Button("Check Again") {
+                Task {
+                    guard let outcome = await EditionImportManager.shared.checkPendingImport(pending.isbn) else {
+                        return
+                    }
+                    applyISBNLookupOutcome(outcome)
+                }
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding(.vertical, 8)
+        .listRowSeparator(.hidden)
+    }
+
     // MARK: - Debounced Search
 
     private func startSearch(_ query: String, debounced: Bool) {
@@ -210,6 +267,8 @@ struct SearchView: View {
         guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             results = []
             editionResult = nil
+            missingImportDraft = nil
+            pendingImport = nil
             searchError = nil
             hasSearched = false
             isSearching = false
@@ -238,20 +297,26 @@ struct SearchView: View {
         isSearching = true
         searchError = nil
         editionResult = nil
+        missingImportDraft = nil
+        pendingImport = nil
 
         if looksLikeISBN {
             do {
-                let lookup = ISBNLookupService(hardcoverService: hardcoverService)
-                if let edition = try await lookup.lookup(isbn: digitsOnly) {
-                    guard !Task.isCancelled, isCurrentQuery(trimmed) else { return }
-                    editionResult = edition
-                    results = []
-                    hasSearched = true
-                    isSearching = false
-                    return
-                }
+                let outcome = try await EditionImportManager.shared.lookupISBN(digitsOnly, source: .search)
+                guard !Task.isCancelled, isCurrentQuery(trimmed) else { return }
+
+                applyISBNLookupOutcome(outcome)
+                results = []
+                hasSearched = true
+                isSearching = false
+                return
             } catch {
                 guard !Task.isCancelled, isCurrentQuery(trimmed) else { return }
+                searchError = error.localizedDescription
+                hasSearched = true
+                results = []
+                isSearching = false
+                return
             }
         }
 
@@ -269,7 +334,32 @@ struct SearchView: View {
         isSearching = false
     }
 
+    private func applyISBNLookupOutcome(_ outcome: ISBNLookupOutcome) {
+        searchError = nil
+
+        switch outcome {
+        case .found(let edition):
+            editionResult = edition
+            missingImportDraft = nil
+            pendingImport = nil
+
+        case .missing(let draft):
+            editionResult = nil
+            missingImportDraft = draft
+            pendingImport = nil
+
+        case .pending(let pending):
+            editionResult = nil
+            missingImportDraft = nil
+            pendingImport = pending
+        }
+    }
+
     private func isCurrentQuery(_ expected: String) -> Bool {
         query.trimmingCharacters(in: .whitespacesAndNewlines) == expected
+    }
+
+    private var hasISBNLookupState: Bool {
+        editionResult != nil || missingImportDraft != nil || pendingImport != nil
     }
 }

@@ -140,7 +140,7 @@ final class MutationQueue: ObservableObject {
             guard let bookId = payload.bookId, let statusId = payload.statusId else {
                 throw MutationError.missingFields
             }
-            let _ = try await service.insertUserBook(bookId: bookId, statusId: statusId)
+            let _ = try await service.insertUserBook(bookId: bookId, statusId: statusId, editionId: payload.editionId)
 
         case "update_user_book":
             guard let userBookId = payload.userBookId else {

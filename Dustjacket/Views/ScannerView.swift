@@ -3,6 +3,7 @@ import VisionKit
 
 struct ScannerView: View {
     @StateObject private var manager: ScannerManager
+    @State private var importSheetDraft: MissingEditionDraft?
     let hardcoverService: HardcoverServiceProtocol
 
     init(hardcoverService: HardcoverServiceProtocol) {
@@ -56,14 +57,14 @@ struct ScannerView: View {
                         }
                 }
 
-            case .notFound:
+            case .missingImport:
                 VStack(spacing: 20) {
-                    Image(systemName: "book.closed")
+                    Image(systemName: "square.and.arrow.down")
                         .font(.system(size: 48))
                         .foregroundStyle(.secondary)
-                    Text("Book Not Found")
+                    Text("Edition Missing From Hardcover")
                         .font(.title3.bold())
-                    Text("This ISBN wasn't found in Hardcover's database.")
+                    Text("This ISBN isn't on Hardcover yet. Import it first so Dustjacket can keep the book tied to a real edition.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
@@ -75,16 +76,86 @@ struct ScannerView: View {
                             .foregroundStyle(.secondary)
                     }
 
+                    Button("Import Missing Edition") {
+                        importSheetDraft = manager.missingImportDraft
+                    }
+                    .buttonStyle(.borderedProminent)
+
                     Button("Scan Again") {
                         manager.reset()
                     }
+                    .buttonStyle(.bordered)
+                }
+                .padding(.horizontal, 24)
+
+            case .pendingImport:
+                VStack(spacing: 20) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.system(size: 48))
+                        .foregroundStyle(.secondary)
+                    Text("Edition Import Pending")
+                        .font(.title3.bold())
+                    Text("Hardcover is still processing this ISBN. Dustjacket will keep checking for the finished edition.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+
+                    if let pending = manager.pendingImport {
+                        Text(pending.isbn)
+                            .font(.callout.monospacedDigit())
+                            .foregroundStyle(.secondary)
+
+                        if let lastError = pending.lastError, !lastError.isEmpty {
+                            Text(lastError)
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
+                        }
+                    }
+
+                    Button("Check Again") {
+                        Task {
+                            await manager.refreshPendingImport()
+                        }
+                    }
                     .buttonStyle(.borderedProminent)
+
+                    Button("Scan Again") {
+                        manager.reset()
+                    }
+                    .buttonStyle(.bordered)
                 }
                 .padding(.horizontal, 24)
             }
         }
+        .sheet(item: $importSheetDraft) { draft in
+            EditionImportSheet(initialDraft: draft) { outcome in
+                manager.errorMessage = nil
+
+                switch outcome {
+                case .found(let edition):
+                    manager.foundBook = Book(from: edition)
+                    manager.missingImportDraft = nil
+                    manager.pendingImport = nil
+                    manager.scanState = .found
+                case .missing(let updatedDraft):
+                    manager.foundBook = nil
+                    manager.missingImportDraft = updatedDraft
+                    manager.pendingImport = nil
+                    manager.scanState = .missingImport
+                case .pending(let pending):
+                    manager.foundBook = nil
+                    manager.missingImportDraft = nil
+                    manager.pendingImport = pending
+                    manager.scanState = .pendingImport
+                }
+            }
+        }
         .overlay(alignment: .bottom) {
-            if let errorMessage = manager.errorMessage, manager.scanState == .scanning {
+            if let errorMessage = manager.errorMessage,
+               manager.scanState == .scanning || manager.scanState == .missingImport || manager.scanState == .pendingImport {
                 Text(errorMessage)
                     .font(.caption)
                     .padding(.horizontal, 14)

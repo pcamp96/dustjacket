@@ -107,6 +107,12 @@ struct HardcoverEdition: Codable, Sendable {
     let book: HardcoverBook?
 }
 
+struct HardcoverPlatform: Codable, Sendable {
+    let id: Int
+    let name: String
+    let url: String?
+}
+
 // MARK: - User Books
 
 struct HardcoverUserBook: Codable, Sendable {

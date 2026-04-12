@@ -7,6 +7,7 @@ protocol HardcoverServiceProtocol: Sendable {
     func searchBooks(query: String, page: Int, perPage: Int) async throws -> [HardcoverSearchResult]
     func getBookDetails(bookId: Int) async throws -> Book
     func getEditionByISBN(_ isbn: String) async throws -> [HardcoverEdition]
+    func upsertBookByISBN(_ isbn: String) async throws -> ISBNImportSubmissionResult
     func getUserLists() async throws -> [HardcoverList]
     func getUserBooks(statusId: Int?, limit: Int, offset: Int) async throws -> [HardcoverUserBook]
     func createList(name: String) async throws -> HardcoverList
@@ -14,7 +15,7 @@ protocol HardcoverServiceProtocol: Sendable {
     func removeBookFromList(listBookId: Int) async throws
     func deleteList(id: Int) async throws
     func getTrendingBooks(from: String, to: String, limit: Int, offset: Int) async throws -> [HardcoverTrendingBook]
-    func insertUserBook(bookId: Int, statusId: Int) async throws -> HardcoverUserBook
+    func insertUserBook(bookId: Int, statusId: Int, editionId: Int?) async throws -> HardcoverUserBook
     func updateUserBook(id: Int, statusId: Int?, rating: Double?, editionId: Int?) async throws -> HardcoverUserBook
     func deleteUserBook(id: Int) async throws
     func getUserGoals() async throws -> [HardcoverGoal]
@@ -143,6 +144,96 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
             variables: ["isbn": isbn],
             responseKeyPath: "editions",
             responseType: [HardcoverEdition].self
+        )
+    }
+
+    func upsertBookByISBN(_ isbn: String) async throws -> ISBNImportSubmissionResult {
+        let platformId = try await getISBNPlatformId(for: isbn)
+        let query = """
+        mutation UpsertBookByISBN($book: CreateBookFromPlatformInput!) {
+            upsert_book(book: $book) {
+                id
+                edition_id
+                errors
+                book {
+                    id
+                    title
+                    slug
+                    pages
+                    image {
+                        url
+                    }
+                    cached_contributors
+                    contributions {
+                        author {
+                            id
+                            name
+                        }
+                    }
+                    book_series {
+                        series {
+                            id
+                            name
+                        }
+                        position
+                    }
+                }
+                edition {
+                    id
+                    title
+                    isbn_13
+                    isbn_10
+                    edition_format
+                    pages
+                    release_date
+                    image {
+                        url
+                    }
+                    book {
+                        id
+                        title
+                        slug
+                        pages
+                        image {
+                            url
+                        }
+                        cached_contributors
+                        contributions {
+                            author {
+                                id
+                                name
+                            }
+                        }
+                        book_series {
+                            series {
+                                id
+                                name
+                            }
+                            position
+                        }
+                    }
+                }
+            }
+        }
+        """
+
+        let response: HardcoverUpsertBookResponse = try await client.execute(
+            query: query,
+            variables: [
+                "book": [
+                    "external_id": isbn,
+                    "platform_id": platformId
+                ]
+            ],
+            responseKeyPath: "upsert_book",
+            responseType: HardcoverUpsertBookResponse.self
+        )
+
+        return ISBNImportSubmissionResult(
+            bookId: response.book?.id ?? response.id,
+            editionId: response.edition_id ?? response.edition?.id,
+            edition: response.edition.map(Edition.init(from:)),
+            errors: response.errors ?? []
         )
     }
 
@@ -370,10 +461,10 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
 
     // MARK: - User Book Mutations
 
-    func insertUserBook(bookId: Int, statusId: Int) async throws -> HardcoverUserBook {
+    func insertUserBook(bookId: Int, statusId: Int, editionId: Int? = nil) async throws -> HardcoverUserBook {
         let query = """
-        mutation InsertUserBook($bookId: Int!, $statusId: Int!) {
-            insert_user_book(object: { book_id: $bookId, status_id: $statusId }) {
+        mutation InsertUserBook($bookId: Int!, $statusId: Int!, $editionId: Int) {
+            insert_user_book(object: { book_id: $bookId, status_id: $statusId, edition_id: $editionId }) {
                 id
                 error
                 user_book {
@@ -381,6 +472,14 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
                     status_id
                     rating
                     created_at
+                    edition_id
+                    edition {
+                        id
+                        title
+                        pages
+                        edition_format
+                        image { url }
+                    }
                     book {
                         id
                         title
@@ -399,7 +498,7 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
         """
         let response: HardcoverUserBookMutationResponse = try await client.execute(
             query: query,
-            variables: ["bookId": bookId, "statusId": statusId],
+            variables: ["bookId": bookId, "statusId": statusId, "editionId": editionId ?? NSNull()],
             responseKeyPath: "insert_user_book",
             responseType: HardcoverUserBookMutationResponse.self
         )
@@ -805,4 +904,56 @@ final class HardcoverService: HardcoverServiceProtocol, @unchecked Sendable {
 
         return meArray.first?.user_books.first
     }
+
+    private func getPlatforms() async throws -> [HardcoverPlatform] {
+        let query = """
+        query Platforms {
+            platforms {
+                id
+                name
+                url
+            }
+        }
+        """
+
+        return try await client.execute(
+            query: query,
+            variables: nil,
+            responseKeyPath: "platforms",
+            responseType: [HardcoverPlatform].self
+        )
+    }
+
+    private func getISBNPlatformId(for isbn: String) async throws -> Int {
+        let platforms = try await getPlatforms()
+        let loweredNames = platforms.map { ($0, $0.name.lowercased()) }
+        let preferredTokens: [String]
+
+        if isbn.count == 10 {
+            preferredTokens = ["isbn 10", "isbn10"]
+        } else {
+            preferredTokens = ["isbn 13", "isbn13", "ean"]
+        }
+
+        if let exact = loweredNames.first(where: { pair in
+            let loweredName = pair.1
+            return preferredTokens.contains(where: loweredName.contains) || loweredName == "isbn"
+        })?.0 {
+            return exact.id
+        }
+
+        if let generic = loweredNames.first(where: { $0.1.contains("isbn") })?.0 {
+            return generic.id
+        }
+
+        throw GraphQLClientError.graphQLErrors(["Hardcover ISBN import platform is unavailable"])
+    }
+}
+
+private struct HardcoverUpsertBookResponse: Codable, Sendable {
+    let id: Int?
+    let edition_id: Int?
+    let errors: [String]?
+    let book: HardcoverBook?
+    let edition: HardcoverEdition?
 }

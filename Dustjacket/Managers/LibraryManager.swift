@@ -342,9 +342,14 @@ final class LibraryManager: ObservableObject {
         )
     }
 
-    func updateBookEditionOptimistically(bookId: Int, coverURL: String? = nil, editionId: Int, editionPageCount: Int?) {
+    func updateBookEditionOptimistically(bookId: Int, coverURL: String? = nil, editionId: Int, editionPageCount: Int?, editionFormat: String? = nil) {
         guard let index = books.firstIndex(where: { $0.id == bookId }) else { return }
-        books[index] = books[index].with(coverURL: coverURL, editionId: editionId, editionPageCount: editionPageCount)
+        books[index] = books[index].with(
+            coverURL: coverURL,
+            editionId: editionId,
+            editionPageCount: editionPageCount,
+            editionFormat: .some(editionFormat)
+        )
     }
 
     func updateBookRatingOptimistically(bookId: Int, rating: Double) {

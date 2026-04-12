@@ -20,6 +20,14 @@ struct Edition: Identifiable, Codable, Hashable, Sendable {
 }
 
 extension Edition {
+    var displayTitle: String {
+        bookTitle ?? title ?? "Unknown Title"
+    }
+
+    var displayISBN: String? {
+        isbn13 ?? isbn10
+    }
+
     init(from hcEdition: HardcoverEdition) {
         self.id = hcEdition.id
         self.bookId = hcEdition.book?.id ?? 0

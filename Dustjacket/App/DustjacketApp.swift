@@ -22,7 +22,8 @@ struct DustjacketApp: App {
             CachedBook.self,
             CachedEdition.self,
             ListMapping.self,
-            PendingMutation.self
+            PendingMutation.self,
+            PendingEditionImportRecord.self
         ])
     }
 }

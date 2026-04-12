@@ -56,8 +56,8 @@ final class SyncManager: ObservableObject {
         refreshStateFromQueue()
     }
 
-    func enqueueInsertUserBook(bookId: Int, statusId: Int) {
-        let payload = MutationPayload(bookId: bookId, statusId: statusId)
+    func enqueueInsertUserBook(bookId: Int, statusId: Int, editionId: Int? = nil) {
+        let payload = MutationPayload(bookId: bookId, statusId: statusId, editionId: editionId)
         MutationQueue.shared.enqueue(mutationType: "insert_user_book", payload: payload)
         refreshStateFromQueue()
     }

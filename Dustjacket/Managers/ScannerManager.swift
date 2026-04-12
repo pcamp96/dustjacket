@@ -4,20 +4,20 @@ import Foundation
 final class ScannerManager: ObservableObject {
     @Published var scanState: ScanState = .scanning
     @Published var foundBook: Book?
+    @Published var missingImportDraft: MissingEditionDraft?
+    @Published var pendingImport: PendingEditionImportStatus?
     @Published var lastScannedISBN: String?
     @Published var errorMessage: String?
     @Published var isLookingUp = false
     @Published private(set) var scannerSessionID = UUID()
 
-    private let isbnLookup: ISBNLookupService
+    private let editionImportManager = EditionImportManager.shared
     private let duplicateCooldown: TimeInterval = 1.5
     private var recentAttempts: [String: Date] = [:]
     private var lookupTask: Task<Void, Never>?
     private var activeLookupID = UUID()
 
-    init(hardcoverService: HardcoverServiceProtocol) {
-        self.isbnLookup = ISBNLookupService(hardcoverService: hardcoverService)
-    }
+    init(hardcoverService _: HardcoverServiceProtocol) {}
 
     deinit {
         lookupTask?.cancel()
@@ -63,12 +63,12 @@ final class ScannerManager: ObservableObject {
         scanState = .lookingUp
         lastScannedISBN = isbn
 
-        lookupTask = Task { [isbnLookup] in
+        lookupTask = Task { [editionImportManager] in
             do {
-                let edition = try await isbnLookup.lookup(isbn: isbn)
+                let outcome = try await editionImportManager.lookupISBN(isbn, source: .scanner)
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
-                    finishLookup(lookupID: lookupID, isbn: isbn, edition: edition)
+                    finishLookup(lookupID: lookupID, outcome: outcome)
                 }
             } catch {
                 guard !Task.isCancelled else { return }
@@ -86,6 +86,8 @@ final class ScannerManager: ObservableObject {
         activeLookupID = UUID()
         scanState = .scanning
         foundBook = nil
+        missingImportDraft = nil
+        pendingImport = nil
         errorMessage = nil
         isLookingUp = false
         scannerSessionID = UUID()
@@ -97,40 +99,11 @@ final class ScannerManager: ObservableObject {
         resumeScanning()
     }
 
-    private func finishLookup(lookupID: UUID, isbn: String, edition: Edition?) {
+    private func finishLookup(lookupID: UUID, outcome: ISBNLookupOutcome) {
         guard lookupID == activeLookupID else { return }
 
         isLookingUp = false
-
-        guard let edition else {
-            foundBook = nil
-            scanState = .notFound
-            return
-        }
-
-        foundBook = Book(
-            id: edition.bookId,
-            title: edition.bookTitle ?? edition.title ?? "Unknown",
-            authorNames: edition.authorNames,
-            coverURL: edition.coverURL,
-            slug: edition.bookSlug,
-            pageCount: edition.pageCount,
-            isbn13: edition.isbn13,
-            seriesID: edition.seriesID,
-            seriesName: edition.seriesName,
-            seriesPosition: edition.seriesPosition,
-            statusId: nil,
-            rating: nil,
-            userBookId: nil,
-            currentProgress: nil,
-            progressPercent: nil,
-            progressSeconds: nil,
-            editionId: edition.id != 0 ? edition.id : nil,
-            editionPageCount: edition.pageCount,
-            editionFormat: edition.format?.rawValue,
-            lastReadAt: nil
-        )
-        scanState = .found
+        applyLookupOutcome(outcome)
     }
 
     private func finishLookupError(lookupID: UUID, error: Error) {
@@ -140,6 +113,50 @@ final class ScannerManager: ObservableObject {
         scanState = .scanning
         errorMessage = "Couldn’t look up this ISBN right now. Try again."
         scannerSessionID = UUID()
+    }
+
+    func submitMissingEditionImport() async {
+        guard let missingImportDraft else { return }
+
+        do {
+            let outcome = try await editionImportManager.submitImport(missingImportDraft)
+            applyLookupOutcome(outcome)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func refreshPendingImport() async {
+        guard let pendingImport,
+              let outcome = await editionImportManager.checkPendingImport(pendingImport.isbn) else {
+            return
+        }
+
+        applyLookupOutcome(outcome)
+    }
+
+    private func applyLookupOutcome(_ outcome: ISBNLookupOutcome) {
+        errorMessage = nil
+
+        switch outcome {
+        case .found(let edition):
+            foundBook = Book(from: edition)
+            missingImportDraft = nil
+            pendingImport = nil
+            scanState = .found
+
+        case .missing(let draft):
+            foundBook = nil
+            missingImportDraft = draft
+            pendingImport = nil
+            scanState = .missingImport
+
+        case .pending(let pending):
+            foundBook = nil
+            missingImportDraft = nil
+            pendingImport = pending
+            scanState = .pendingImport
+        }
     }
 
     private func shouldAttemptLookup(for isbn: String) -> Bool {
@@ -166,5 +183,6 @@ enum ScanState: Equatable {
     case scanning
     case lookingUp
     case found
-    case notFound
+    case missingImport
+    case pendingImport
 }

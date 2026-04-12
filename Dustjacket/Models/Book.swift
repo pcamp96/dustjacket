@@ -147,6 +147,29 @@ struct Book: Identifiable, Codable, Hashable, Sendable {
 // MARK: - Mapping from API
 
 extension Book {
+    init(from edition: Edition) {
+        self.id = edition.bookId
+        self.title = edition.displayTitle
+        self.authorNames = edition.authorNames
+        self.coverURL = edition.coverURL
+        self.slug = edition.bookSlug
+        self.pageCount = edition.pageCount
+        self.isbn13 = edition.isbn13
+        self.seriesID = edition.seriesID
+        self.seriesName = edition.seriesName
+        self.seriesPosition = edition.seriesPosition
+        self.statusId = nil
+        self.rating = nil
+        self.userBookId = nil
+        self.currentProgress = nil
+        self.progressPercent = nil
+        self.progressSeconds = nil
+        self.editionId = edition.id != 0 ? edition.id : nil
+        self.editionPageCount = edition.pageCount
+        self.editionFormat = edition.format?.rawValue
+        self.lastReadAt = nil
+    }
+
     init(from userBook: HardcoverUserBook) {
         let hcBook = userBook.book
         self.id = hcBook.id

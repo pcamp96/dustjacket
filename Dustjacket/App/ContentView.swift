@@ -42,6 +42,7 @@ struct ContentView: View {
 
     @StateObject private var libraryManager = LibraryManager.shared
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var selectedTab: Tab = .home
     @State private var showAvatarMenu = false
@@ -88,9 +89,16 @@ struct ContentView: View {
             GoalManager.shared.configure(service: hardcoverService)
             ActivityManager.shared.configure(service: hardcoverService)
             ProfileManager.shared.configure(service: hardcoverService)
+            EditionImportManager.shared.configure(service: hardcoverService, context: modelContext)
 
             // Fetch library + list memberships in one flow
             await libraryManager.fetchLibrary()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            guard newPhase == .active else { return }
+            Task {
+                await EditionImportManager.shared.refreshPendingImports()
+            }
         }
         .sheet(isPresented: $showAvatarMenu) {
             AvatarMenuView(
